@@ -187,16 +187,39 @@ const STREAM_TTL_MS = 3 * 60 * 60 * 1000;
 const audioCache = new TTLCache<AudioSource>(STREAM_TTL_MS, 1000);
 const inflight = new Map<string, Promise<AudioSource>>();
 
-const DEFAULT_CLIENTS: Types.InnerTubeClient[] = ["ANDROID_VR", "IOS", "TV", "WEB_EMBEDDED", "MWEB"];
+// Without a cookie the mobile/VR clients are the most permissive; with a cookie the
+// TV/web clients use the logged-in session (ANDROID_VR/IOS ignore cookies).
+const DEFAULT_CLIENTS: Types.InnerTubeClient[] = ["ANDROID_VR", "IOS", "TV", "WEB_EMBEDDED", "MWEB", "TV_EMBEDDED"];
+const COOKIE_CLIENTS: Types.InnerTubeClient[] = ["TV", "WEB_EMBEDDED", "MWEB", "ANDROID_VR", "IOS", "TV_EMBEDDED"];
 
-function clientOrder(): Types.InnerTubeClient[] {
+export function clientOrder(): Types.InnerTubeClient[] {
   const env = process.env.YT_CLIENTS?.split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  return (env?.length ? env : DEFAULT_CLIENTS) as Types.InnerTubeClient[];
+  if (env?.length) return env as Types.InnerTubeClient[];
+  return process.env.YT_COOKIE ? COOKIE_CLIENTS : DEFAULT_CLIENTS;
 }
 
-async function resolveWithClient(id: string, client: Types.InnerTubeClient): Promise<AudioSource> {
+export const STREAM_FETCH_HEADERS: Record<string, string> = {
+  accept: "*/*",
+  origin: "https://www.youtube.com",
+  referer: "https://www.youtube.com/",
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+};
+
+/** Checks that googlevideo actually serves the URL to this server (not 403 / PO-token wall). */
+async function probe(url: string): Promise<void> {
+  const res = await fetch(`${url}&range=0-1023`, {
+    headers: STREAM_FETCH_HEADERS,
+    cache: "no-store",
+    signal: AbortSignal.timeout(8000),
+  });
+  await res.body?.cancel().catch(() => {});
+  if (!res.ok) throw new Error(`googlevideo ${res.status}`);
+}
+
+export async function resolveWithClient(id: string, client: Types.InnerTubeClient): Promise<AudioSource> {
   const yt = await getYT();
   const info = await yt.getBasicInfo(id, { client });
   const status = info.playability_status?.status;
@@ -207,6 +230,11 @@ async function resolveWithClient(id: string, client: Types.InnerTubeClient): Pro
   const format = info.chooseFormat({ type: "audio", quality: "best", format: "mp4" });
   const url = await format.decipher(yt.session.player);
   if (!url) throw new Error(`${client}: empty url`);
+  try {
+    await probe(url);
+  } catch (e) {
+    throw new Error(`${client}: ${e instanceof Error ? e.message : String(e)}`);
+  }
   return {
     url,
     mimeType: (format.mime_type || "audio/mp4").split(";")[0] ?? "audio/mp4",

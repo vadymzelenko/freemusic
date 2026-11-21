@@ -1,4 +1,4 @@
-import { getAudioSource, type AudioSource } from "@/lib/yt";
+import { getAudioSource, STREAM_FETCH_HEADERS, type AudioSource } from "@/lib/yt";
 import { VIDEO_ID_RE } from "@/lib/format";
 import { CORS_HEADERS, errorMessage, json, preflight } from "@/lib/http";
 
@@ -9,13 +9,7 @@ export const maxDuration = 60;
 /** googlevideo throttles/refuses huge single requests — serve at most 10MB per response. */
 const MAX_CHUNK = 10 * 1024 * 1024;
 
-const UPSTREAM_HEADERS: Record<string, string> = {
-  accept: "*/*",
-  origin: "https://www.youtube.com",
-  referer: "https://www.youtube.com/",
-  "user-agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
-};
+const UPSTREAM_HEADERS = STREAM_FETCH_HEADERS;
 
 type ByteRange = { start: number; end: number | undefined };
 

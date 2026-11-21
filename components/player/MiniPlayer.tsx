@@ -16,7 +16,7 @@ function MiniProgress() {
 }
 
 export function MiniPlayer() {
-  const { current, isPlaying, isBuffering, toggle, next, setPlayerOpen } = usePlayer();
+  const { current, isPlaying, isBuffering, error, toggle, next, setPlayerOpen } = usePlayer();
 
   return (
     <AnimatePresence>
@@ -39,7 +39,13 @@ export function MiniPlayer() {
               <Cover src={current.cover} alt="" className="h-11 w-11" rounded="rounded-[7px]" />
               <div className="min-w-0">
                 <div className="truncate text-[14px] font-medium leading-tight">{current.title}</div>
-                <div className="truncate text-[12.5px] text-muted">{current.artist}</div>
+                {error ? (
+                  <div className="truncate text-[12.5px] text-red-400" title={error}>
+                    {error}
+                  </div>
+                ) : (
+                  <div className="truncate text-[12.5px] text-muted">{current.artist}</div>
+                )}
               </div>
             </button>
             <button
