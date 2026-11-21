@@ -14,6 +14,7 @@ import { artistKey, type ArtistPage, type Track } from "@/lib/types";
 import { getJSON } from "@/lib/use-api";
 import { useFeed, type SeedArtist } from "@/store/feed";
 import { useHydrated, useLibrary } from "@/store/library";
+import { useAuth } from "@/lib/cloud-sync";
 
 const FEED_TTL = 6 * 60 * 60 * 1000;
 const FIRST_ARTISTS = 4;
@@ -109,6 +110,9 @@ export default function HomePage() {
   const plays = useLibrary((s) => s.plays);
   const likedIds = useLibrary((s) => s.likedIds);
   const followedAll = useLibrary((s) => s.artists);
+  const hidden = useLibrary((s) => s.hiddenSections);
+  const show = (id: string) => !hidden.includes(id);
+  const authLoaded = useAuth((s) => s.loaded);
   const { playTracks, setRadio } = usePlayer();
 
   const feed = useFeed();
@@ -116,8 +120,9 @@ export default function HomePage() {
 
   // First launch → pick artists.
   useEffect(() => {
-    if (hydrated && !onboarded && artistsCount === 0 && likedCount === 0) router.replace("/onboarding");
-  }, [hydrated, onboarded, artistsCount, likedCount, router]);
+    // wait for the cloud copy first — on a new device the account may already have artists
+    if (hydrated && authLoaded && !onboarded && artistsCount === 0 && likedCount === 0) router.replace("/onboarding");
+  }, [hydrated, authLoaded, onboarded, artistsCount, likedCount, router]);
 
   // Taste snapshot is frozen per feed build — liking a track doesn't reshuffle the page.
   const profile = useMemo(
@@ -138,12 +143,12 @@ export default function HomePage() {
 
   // Build when stale (new day / 6h) or empty. Otherwise show the saved feed instantly.
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !authLoaded) return;
     const f = useFeed.getState();
     const stale = f.day !== daySeed() || Date.now() - f.builtAt > FEED_TTL;
     const empty = f.pools.length === 0 && f.loading === 0;
     if (stale || empty) build();
-  }, [hydrated, build]);
+  }, [hydrated, authLoaded, build]);
 
   const loadMore = useCallback(() => {
     const more = useFeed.getState().takeSeeds(2, 2);
@@ -288,7 +293,7 @@ export default function HomePage() {
       )}
 
       {/* Mixes */}
-      {pools.length > 0 ? (
+      {!show("mixes") ? null : pools.length > 0 ? (
         <Shelf title="Ваши миксы">
           <MixCard
             title="Мой микс"
@@ -319,7 +324,7 @@ export default function HomePage() {
       )}
 
       {/* Quick picks with "show more" */}
-      {(quickPicks.length > 0 || busy) && (
+      {show("quick") && (quickPicks.length > 0 || busy) && (
         <section className="mt-7">
           <div className="mb-1 flex items-end justify-between px-4">
             <div>
@@ -365,7 +370,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {trackRows.map(({ pool, list }) => (
+      {show("because") && trackRows.map(({ pool, list }) => (
         <Shelf key={pool.seedId} subtitle="Потому что вам понравилось" title={pool.seedName || "этот трек"}>
           {list.map((t, i) => (
             <TrackCard key={t.id} track={t} onPlay={() => startMix(list, i)} />
@@ -373,7 +378,7 @@ export default function HomePage() {
         </Shelf>
       ))}
 
-      {followed.length > 0 && (
+      {show("artists") && followed.length > 0 && (
         <Shelf title="Ваши артисты" href="/onboarding">
           {followed.map((a) => (
             <ArtistCircle key={a.key} artist={{ id: a.id!, name: a.name, thumbnail: a.thumbnail ?? "" }} width={104} />
@@ -381,7 +386,7 @@ export default function HomePage() {
         </Shelf>
       )}
 
-      {recent.length > 0 && (
+      {show("recent") && recent.length > 0 && (
         <Shelf title="Недавно слушали">
           {recent.map((t, i) => (
             <TrackCard key={t.id} track={t} onPlay={() => startMix(recent, i)} width={128} />
@@ -389,7 +394,7 @@ export default function HomePage() {
         </Shelf>
       )}
 
-      {liked.length > 0 && (
+      {show("liked") && liked.length > 0 && (
         <Shelf title="Любимые треки" href="/library/liked">
           {liked.slice(0, 15).map((t, i) => (
             <TrackCard key={t.id} track={t} onPlay={() => startMix(liked, i)} width={128} />

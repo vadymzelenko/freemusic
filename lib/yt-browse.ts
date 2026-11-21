@@ -1,7 +1,7 @@
 import "server-only";
 import { YTNodes } from "youtubei.js";
 import { TTLCache } from "./ttl-cache";
-import { dedupe, fromListItem, getYTBrowse as getYT, hiResImage, relatedTracks } from "./yt";
+import { artistsFromSubtitle, dedupe, fromListItem, getYTBrowse as getYT, hiResCover, hiResImage, relatedTracks } from "./yt";
 import type {
   AlbumPage,
   AlbumSummary,
@@ -93,7 +93,7 @@ function fromTwoRow(item: YTNodes.MusicTwoRowItem): { album?: AlbumSummary; arti
       track: {
         id: item.id,
         title,
-        artist: item.artists?.map((a) => a.name).join(", ") || by?.name || "",
+        artist: item.artists?.map((a) => a.name).join(", ") || by?.name || artistsFromSubtitle(item.subtitle).join(", ") || "",
         artistId: by?.channel_id,
         duration: 0,
         cover: hiResImage(thumbs),
@@ -131,7 +131,19 @@ export async function search(query: string, type: SearchType): Promise<SearchRes
     if (shelf.is(YTNodes.MusicShelf)) {
       for (const item of shelf.contents) if (item.is(YTNodes.MusicResponsiveListItem)) take(item);
     } else if (shelf.is(YTNodes.MusicCardShelf)) {
-      // "Top result" card — its contents are list items (songs/videos/albums).
+      // The "top result" itself (e.g. the most popular song for the query).
+      const videoId = (shelf.on_tap as unknown as { payload?: { videoId?: string } } | undefined)?.payload?.videoId;
+      if (videoId) {
+        songs.unshift({
+          id: videoId,
+          title: str(shelf.title) || "Unknown",
+          artist: artistsFromSubtitle(shelf.subtitle).join(", ") || "Unknown",
+          artistId: browseIdIn(shelf.subtitle),
+          duration: 0,
+          cover: hiResCover((shelf.thumbnail?.contents ?? []) as Thumb[], videoId),
+        });
+      }
+      // Its contents are list items (songs/videos/albums).
       for (const item of (shelf as unknown as { contents?: YTNodes.MusicResponsiveListItem[] }).contents ?? []) {
         if (item?.is?.(YTNodes.MusicResponsiveListItem)) take(item);
       }

@@ -91,3 +91,20 @@ input[type="search"]::-webkit-search-cancel-button {
   transform-origin: bottom;
   animation: eq 0.9s ease-in-out infinite;
 }
+
+/* App-like feel: no text selection / iOS callouts, except in inputs */
+html {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+img {
+  -webkit-user-drag: none;
+}

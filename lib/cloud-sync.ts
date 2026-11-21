@@ -24,6 +24,8 @@ export type SyncStatus = "off" | "syncing" | "synced" | "error";
 interface AuthState {
   user: User | null;
   ready: boolean;
+  /** true once the first cloud pull after sign-in finished (or there is no account) */
+  loaded: boolean;
   status: SyncStatus;
   error: string | null;
 }
@@ -36,7 +38,7 @@ function friendly(e: unknown): string {
   return msg;
 }
 
-export const useAuth = create<AuthState>(() => ({ user: null, ready: false, status: "off", error: null }));
+export const useAuth = create<AuthState>(() => ({ user: null, ready: false, loaded: false, status: "off", error: null }));
 
 export async function signInWithGoogle(): Promise<void> {
   const sb = getSupabase();
@@ -142,7 +144,8 @@ function diff(next: LibraryData, prev: LibraryData) {
   if (
     next.lastQueue !== prev.lastQueue ||
     next.searchHistory !== prev.searchHistory ||
-    next.onboarded !== prev.onboarded
+    next.onboarded !== prev.onboarded ||
+    next.hiddenSections !== prev.hiddenSections
   ) {
     dirty.state = true;
   }
@@ -294,6 +297,7 @@ async function pushDirty(sb: SupabaseClient, user: User) {
             last_queue: s.lastQueue,
             search_history: s.searchHistory,
             onboarded: s.onboarded,
+            ui_prefs: { hiddenSections: s.hiddenSections },
             updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id" },
@@ -409,6 +413,7 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
     last_queue?: LibraryData["lastQueue"];
     search_history?: string[];
     onboarded?: boolean;
+    ui_prefs?: { hiddenSections?: string[] } | null;
   } | null;
 
   return {
@@ -421,6 +426,7 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
     plays: pe,
     searchHistory: st?.search_history ?? [],
     onboarded: st?.onboarded ?? false,
+    hiddenSections: st?.ui_prefs?.hiddenSections ?? [],
     lastQueue: st?.last_queue?.tracks ? st.last_queue : EMPTY_LIBRARY.lastQueue,
   };
 }
@@ -457,7 +463,8 @@ function merge(local: LibraryData, remote: LibraryData): LibraryData {
     artists: [...artists.values()],
     plays,
     searchHistory: uniq([...local.searchHistory, ...remote.searchHistory]).slice(0, 15),
-    onboarded: local.onboarded || remote.onboarded,
+    onboarded: local.onboarded || remote.onboarded || remote.artists.length > 0,
+    hiddenSections: remote.hiddenSections.length ? remote.hiddenSections : local.hiddenSections,
     lastQueue: local.lastQueue.tracks.length ? local.lastQueue : remote.lastQueue,
   };
 }
@@ -475,6 +482,7 @@ function snapshot(): LibraryData {
     plays: s.plays,
     searchHistory: s.searchHistory,
     onboarded: s.onboarded,
+    hiddenSections: s.hiddenSections,
     lastQueue: s.lastQueue,
   };
 }
@@ -504,13 +512,15 @@ async function initialSync(user: User) {
     if (useAuth.getState().status === "syncing") useAuth.setState({ status: "synced", error: null });
   } catch (e) {
     useAuth.setState({ status: "error", error: friendly(e) });
+  } finally {
+    useAuth.setState({ loaded: true });
   }
 }
 
-async function pullIfIdle() {
+async function pullIfIdle(force = false) {
   const sb = getSupabase();
   const user = useAuth.getState().user;
-  if (!sb || !user || Date.now() - lastPullAt < 15_000) return;
+  if (!sb || !user || (!force && Date.now() - lastPullAt < 15_000)) return;
   await flush();
   if (hasDirty()) return; // offline — keep local changes
   try {
@@ -531,7 +541,7 @@ async function pullIfIdle() {
 export function initCloudSync(): () => void {
   const sb = getSupabase();
   if (!sb) {
-    useAuth.setState({ ready: true, status: "off" });
+    useAuth.setState({ ready: true, loaded: true, status: "off" });
     return () => {};
   }
   loadDirty();
@@ -539,7 +549,12 @@ export function initCloudSync(): () => void {
   let currentUserId: string | null = null;
   const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
     const user = session?.user ?? null;
-    useAuth.setState({ user, ready: true, status: user ? useAuth.getState().status : "off" });
+    useAuth.setState({
+      user,
+      ready: true,
+      status: user ? useAuth.getState().status : "off",
+      loaded: user ? useAuth.getState().loaded && user.id === currentUserId : true,
+    });
     if (user && user.id !== currentUserId) {
       currentUserId = user.id;
       setTimeout(() => {
@@ -565,7 +580,37 @@ export function initCloudSync(): () => void {
   const onOnline = () => void flush();
   window.addEventListener("online", onOnline);
 
+  // Changes made on another device arrive via Supabase Realtime (tables are added to the
+  // publication in schema.sql); a slow poll is the fallback.
+  let rtTimer: ReturnType<typeof setTimeout> | null = null;
+  const onRemoteChange = () => {
+    if (rtTimer) clearTimeout(rtTimer);
+    rtTimer = setTimeout(() => void pullIfIdle(true), 1200);
+  };
+  let channel: ReturnType<typeof sb.channel> | null = null;
+  const unsubAuthRt = useAuth.subscribe((st, prev) => {
+    if (st.user?.id === prev.user?.id) return;
+    if (channel) void sb.removeChannel(channel);
+    channel = null;
+    if (!st.user) return;
+    channel = sb.channel(`lib-${st.user.id}`);
+    for (const table of ["likes", "playlists", "playlist_items", "user_artists", "user_state"]) {
+      channel.on(
+        "postgres_changes" as never,
+        { event: "*", schema: "public", table, ...(table === "playlist_items" ? {} : { filter: `user_id=eq.${st.user.id}` }) } as never,
+        onRemoteChange as never,
+      );
+    }
+    channel.subscribe();
+  });
+  const poll = setInterval(() => {
+    if (document.visibilityState === "visible") void pullIfIdle();
+  }, 60_000);
+
   return () => {
+    unsubAuthRt();
+    if (channel) void sb.removeChannel(channel);
+    clearInterval(poll);
     sub.subscription.unsubscribe();
     unsubStore();
     document.removeEventListener("visibilitychange", onVisible);

@@ -11,6 +11,7 @@ import type { Track } from "@/lib/types";
 import { useUI } from "@/store/ui";
 import { useDownloads } from "@/store/downloads";
 import { useReaction } from "@/store/library";
+import { copyTrackName, useLongPress } from "@/lib/use-press";
 
 interface Props {
   track: Track;
@@ -27,6 +28,7 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
   const downloaded = useDownloads((s) => !!s.items[track.id]);
   const dl = useDownloads((s) => s.active[track.id]);
   const reaction = useReaction(track.id);
+  const copyPress = useLongPress(() => copyTrackName(track));
 
   return (
     <div
@@ -37,6 +39,7 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
     >
       <button
         type="button"
+        {...copyPress}
         onClick={onPlay}
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
         aria-label={`Воспроизвести ${track.title}`}

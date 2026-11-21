@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   try {
     const src = await getAudioSource(id, { verify: true });
     return json(
-      { ok: true, id, mimeType: src.mimeType, bitrate: src.bitrate, client: src.client },
+      { ok: true, id, mimeType: src.mimeType, bitrate: src.bitrate, itag: src.itag, durationMs: src.durationMs, client: src.client },
       { cache: "no-store" },
     );
   } catch (err) {

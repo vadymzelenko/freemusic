@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Download, Heart, ListMusic, Plus, Settings, UsersRound } from "lucide-react";
+import { ChevronRight, Download, ThumbsUp, ListMusic, Plus, Settings, UsersRound } from "lucide-react";
 import { tracksWord } from "@/lib/plural";
 import { useDownloads } from "@/store/downloads";
 import Link from "next/link";
@@ -69,7 +69,7 @@ export default function LibraryPage() {
           className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-200 to-zinc-500">
-            <Heart className="h-6 w-6 fill-bg text-bg" />
+            <ThumbsUp className="h-6 w-6 fill-bg text-bg" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-medium">Любимые треки</div>

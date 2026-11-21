@@ -79,6 +79,7 @@ interface PlayerContextValue {
   next: () => void;
   prev: () => void;
   seek: (seconds: number) => void;
+  seekBy: (delta: number) => void;
   playNext: (track: Track) => void;
   addToQueue: (track: Track) => void;
   removeFromQueue: (index: number) => void;
@@ -111,15 +112,42 @@ const PREWARM_BEFORE_END_S = 20;
  * Real track length. Safari sometimes reports ~2x the duration for YouTube AAC files
  * (SBR / HE-AAC), leaving silence at the end — trust the catalog duration in that case.
  */
+/** Real durations reported by the server (format.approx_duration_ms) — more reliable than catalog data. */
+const realDurations = new Map<string, number>();
+
 function effectiveDuration(a: HTMLAudioElement, t: Track | undefined): number {
   const d = a.duration;
-  const meta = t?.duration ?? 0;
+  const meta = (t && realDurations.get(t.id)) || t?.duration || 0;
   if (Number.isFinite(d) && d > 0) {
-    if (meta > 0 && d > meta * 1.25 + 5) return meta;
+    if (meta > 0 && d > meta * 1.15 && d - meta > 4) return meta;
     return d;
   }
   return meta;
 }
+
+const prepared = new Map<string, Promise<void>>();
+
+/** Asks the server to resolve (and cache) the stream URL; remembers the true duration. */
+function prepare(id: string): Promise<void> {
+  let p = prepared.get(id);
+  if (!p) {
+    p = fetch(prepareUrl(id))
+      .then((r) => r.json() as Promise<{ ok?: boolean; durationMs?: number }>)
+      .then((d) => {
+        if (d.durationMs) realDurations.set(id, d.durationMs / 1000);
+        if (!d.ok) prepared.delete(id);
+      })
+      .catch(() => {
+        prepared.delete(id);
+      });
+    prepared.set(id, p);
+    // re-prepare after 2h (server cache is 3h)
+    setTimeout(() => prepared.delete(id), 2 * 60 * 60 * 1000);
+  }
+  return p;
+}
+
+const PREPARE_AHEAD = 3;
 
 type Actions = { play: () => void; pause: () => void; next: () => void; prev: () => void; seek: (s: number) => void };
 
@@ -247,6 +275,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         );
         if (!fresh.length) return false;
         commitQueue([...queueRef.current, ...fresh]);
+        for (let k = 1; k <= PREPARE_AHEAD; k++) {
+          const up = queueRef.current[indexRef.current + k];
+          if (up && !isDownloaded(up.id)) setTimeout(() => void prepare(up.id), (k - 1) * 250);
+        }
         return true;
       } catch {
         radioSeedRef.current = null; // allow retry later
@@ -285,6 +317,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       updateMediaMetadata(t);
       progressStore.set({ time: 0, duration: t.duration, buffered: 0 });
       // async work happens AFTER play() was issued
+      // Warm the next few tracks in parallel so skipping is instant.
+      for (let k = 1; k <= PREPARE_AHEAD; k++) {
+        const up = queueRef.current[i + k];
+        if (up && !isDownloaded(up.id)) setTimeout(() => void prepare(up.id), (k - 1) * 250);
+      }
+      // Learn the real duration of the current one too (after its stream request is in flight).
+      if (!isDownloaded(t.id)) setTimeout(() => void prepare(t.id), 1500);
       if (prevTrack && !playRecordedRef.current) recordPlay(prevTrack, prevListened, prevCompleted);
       playRecordedRef.current = false;
       fakeEndedRef.current = false;
@@ -364,6 +403,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [progressStore, updatePositionState],
   );
+
+  const seekBy = useCallback((delta: number) => {
+    const a = audioRef.current;
+    if (a) seek((a.currentTime || 0) + delta);
+  }, [seek]);
 
   const playNext = useCallback(
     (t: Track) => {
@@ -456,7 +500,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       const d = effectiveDuration(a, queueRef.current[indexRef.current]);
       // Inflated duration (see effectiveDuration): the music is over, skip the trailing silence.
-      if (d > 0 && Number.isFinite(a.duration) && a.duration - d > 5 && a.currentTime >= d + 0.3 && !fakeEndedRef.current) {
+      if (d > 0 && Number.isFinite(a.duration) && a.duration - d > 4 && a.currentTime >= d + 0.3 && !fakeEndedRef.current) {
         fakeEndedRef.current = true;
         onEnded();
         return;
@@ -466,9 +510,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const nextTrack = queueRef.current[indexRef.current + 1];
         if (nextTrack && !prewarmedRef.current.has(nextTrack.id)) {
           prewarmedRef.current.add(nextTrack.id);
-          fetch(prepareUrl(nextTrack.id), { keepalive: true }).catch(() => {
-            prewarmedRef.current.delete(nextTrack.id);
-          });
+          prepared.delete(nextTrack.id); // refresh: URL may be close to expiry
+          void prepare(nextTrack.id);
         }
       }
     };
@@ -612,7 +655,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const t = lastQueue.tracks[i];
       if (t) {
         // Resolve the stream URL before the user taps play (cold start happens now, not on tap).
-        fetch(prepareUrl(t.id)).catch(() => {});
+        void prepare(t.id);
         updateMediaMetadata(t);
         progressStore.set({ time: 0, duration: t.duration, buffered: 0 });
       }
@@ -650,6 +693,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       next,
       prev,
       seek,
+      seekBy,
       playNext,
       addToQueue,
       removeFromQueue,
@@ -676,6 +720,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       next,
       prev,
       seek,
+      seekBy,
       playNext,
       addToQueue,
       removeFromQueue,

@@ -8,7 +8,7 @@ import { BackButton } from "@/components/BackButton";
 import { Cover } from "@/components/ui/Cover";
 import { removeAllDownloads, storageEstimate } from "@/lib/downloads";
 import { useDownloads } from "@/store/downloads";
-import { useLibrary } from "@/store/library";
+import { HOME_SECTIONS, useLibrary } from "@/store/library";
 import { useUI } from "@/store/ui";
 
 const mb = (b: number) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} ГБ` : `${Math.round(b / 1e6)} МБ`);
@@ -48,6 +48,28 @@ function Row({
   );
 }
 
+function Toggle({ on, onChange, title, hint }: { on: boolean; onChange: () => void; title: string; hint?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onChange}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-white/[0.04]"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px]">{title}</span>
+        {hint && <span className="block truncate text-[12.5px] text-subtle">{hint}</span>}
+      </span>
+      <span className={`relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors ${on ? "bg-fg" : "bg-white/15"}`}>
+        <span
+          className={`absolute top-[3px] h-5 w-5 rounded-full shadow transition-all ${on ? "left-[21px] bg-bg" : "left-[3px] bg-fg/80"}`}
+        />
+      </span>
+    </button>
+  );
+}
+
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-6">
@@ -62,6 +84,8 @@ export default function SettingsPage() {
   const dislikes = useLibrary((s) => s.dislikedIds.length);
   const plays = useLibrary((s) => s.plays.length);
   const clearHistory = useLibrary((s) => s.clearHistory);
+  const hidden = useLibrary((s) => s.hiddenSections);
+  const toggleSection = useLibrary((s) => s.toggleSection);
   const downloads = useDownloads((s) => s.items);
   const toast = useUI((s) => s.showToast);
   const [usage, setUsage] = useState<{ usage: number; quota: number } | null>(null);
@@ -83,6 +107,18 @@ export default function SettingsPage() {
       <div className="mt-4">
         <AccountCard />
       </div>
+
+      <Group title="Главная — что показывать">
+        {HOME_SECTIONS.map((sec) => (
+          <Toggle
+            key={sec.id}
+            title={sec.title}
+            hint={sec.hint}
+            on={!hidden.includes(sec.id)}
+            onChange={() => toggleSection(sec.id)}
+          />
+        ))}
+      </Group>
 
       <Group title="Рекомендации">
         <Link href="/onboarding" className="flex items-center gap-3.5 px-4 py-3 active:bg-white/[0.04]">
