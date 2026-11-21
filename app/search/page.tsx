@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpLeft, Clock, Search as SearchIcon, X } from "lucide-react";
+import { ArrowUpLeft, Clock, ListMusic, Search as SearchIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { AlbumCard, ArtistCircle } from "@/components/Cards";
@@ -47,7 +47,8 @@ export default function SearchPage() {
   const [focused, setFocused] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { playTrack, playTracks, setRadio } = usePlayer();
+  const { playTrack, playTracks, setRadio, queue, index, current, jumpTo, radio } = usePlayer();
+  const upcoming = queue.slice(index + 1, index + 6);
   const history = useLibrary((s) => s.searchHistory);
   const pushSearch = useLibrary((s) => s.pushSearch);
   const clearHistory = useLibrary((s) => s.clearSearchHistory);
@@ -57,8 +58,8 @@ export default function SearchPage() {
   const resultsQ = useDebounced(q, 450);
   const local = useLocalMatches(q);
 
-  const suggestions = useApi<Suggestions>(focused && suggestQ ? `/api/suggest?q=${encodeURIComponent(suggestQ)}` : null);
-  const results = useApi<SearchResults>(resultsQ ? `/api/search?type=${tab}&q=${encodeURIComponent(resultsQ)}` : null);
+  const suggestions = useApi<Suggestions>(focused && suggestQ ? `/api/suggest?q=${encodeURIComponent(suggestQ)}` : null, { keep: true });
+  const results = useApi<SearchResults>(resultsQ ? `/api/search?type=${tab}&q=${encodeURIComponent(resultsQ)}` : null, { keep: true });
 
   const submit = (value: string) => {
     setQuery(value);
@@ -206,7 +207,29 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* Empty state: history */}
+      {/* Empty state: current queue + history */}
+      {!q && current && (
+        <section className="pt-2 pb-4">
+          <div className="flex items-end justify-between px-4 pb-1">
+            <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-subtle">
+              {radio ? "Сейчас играет · радио" : "Сейчас играет"}
+            </h2>
+            <Link href="/queue" className="flex items-center gap-1 text-[13px] text-muted hover:text-fg">
+              <ListMusic className="h-3.5 w-3.5" /> Вся очередь
+            </Link>
+          </div>
+          <TrackRow track={current} onPlay={() => jumpTo(index)} />
+          {upcoming.length > 0 && (
+            <>
+              <h3 className="px-4 pt-2 text-[12px] text-subtle">Далее</h3>
+              {upcoming.map((t, k) => (
+                <TrackRow key={`${t.id}-${k}`} track={t} onPlay={() => jumpTo(index + 1 + k)} />
+              ))}
+            </>
+          )}
+        </section>
+      )}
+
       {!q && (
         <section className="px-4 pt-2">
           {history.length > 0 ? (
@@ -232,7 +255,7 @@ export default function SearchPage() {
                 ))}
               </ul>
             </>
-          ) : (
+          ) : current ? null : (
             <div className="mt-16 flex flex-col items-center text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-card">
                 <SearchIcon className="h-6 w-6 text-muted" />
@@ -246,7 +269,7 @@ export default function SearchPage() {
 
       {/* Results */}
       {q && !showSuggestions && (
-        <div>
+        <div className={results.stale ? "opacity-60 transition-opacity" : "transition-opacity"}>
           {local.length > 0 && tab !== "album" && tab !== "artist" && (
             <section className="pt-2">
               <h2 className="px-4 pb-1 text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">В медиатеке</h2>

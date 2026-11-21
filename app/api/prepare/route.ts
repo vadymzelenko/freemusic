@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id") ?? "";
   if (!VIDEO_ID_RE.test(id)) return json({ error: "Invalid id" }, { status: 400 });
   try {
-    const src = await getAudioSource(id);
+    const src = await getAudioSource(id, { verify: true });
     return json(
       { ok: true, id, mimeType: src.mimeType, bitrate: src.bitrate, client: src.client },
       { cache: "no-store" },

@@ -106,6 +106,45 @@ export function useProgress(): Progress {
 /* ------------------------------------------------------------------ */
 
 const PREWARM_BEFORE_END_S = 20;
+
+/**
+ * Real track length. Safari sometimes reports ~2x the duration for YouTube AAC files
+ * (SBR / HE-AAC), leaving silence at the end — trust the catalog duration in that case.
+ */
+function effectiveDuration(a: HTMLAudioElement, t: Track | undefined): number {
+  const d = a.duration;
+  const meta = t?.duration ?? 0;
+  if (Number.isFinite(d) && d > 0) {
+    if (meta > 0 && d > meta * 1.25 + 5) return meta;
+    return d;
+  }
+  return meta;
+}
+
+type Actions = { play: () => void; pause: () => void; next: () => void; prev: () => void; seek: (s: number) => void };
+
+/** (Re)installs lock-screen controls. iOS can drop them when the source changes, so this runs on every play. */
+function applyMediaHandlers(actions: { current: Actions }) {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+  const ms = navigator.mediaSession;
+  const set = (action: MediaSessionAction, h: MediaSessionActionHandler | null) => {
+    try {
+      ms.setActionHandler(action, h);
+    } catch {
+      /* unsupported action */
+    }
+  };
+  // Explicitly remove ±10s skip buttons so iOS shows previous / next track instead.
+  set("seekbackward", null);
+  set("seekforward", null);
+  set("play", () => actions.current.play());
+  set("pause", () => actions.current.pause());
+  set("previoustrack", () => actions.current.prev());
+  set("nexttrack", () => actions.current.next());
+  set("seekto", (d) => {
+    if (typeof d.seekTime === "number") actions.current.seek(d.seekTime);
+  });
+}
 const RADIO_REFILL_THRESHOLD = 3;
 const MAX_CONSECUTIVE_FAILURES = 2;
 
@@ -130,6 +169,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const retriedRef = useRef<Set<string>>(new Set());
   const failuresRef = useRef(0);
   const playRecordedRef = useRef(false);
+  const fakeEndedRef = useRef(false);
   const radioSeedRef = useRef<string | null>(null);
   const loadedIdRef = useRef<string | null>(null);
   const lastPositionUpdateRef = useRef(0);
@@ -171,7 +211,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const updatePositionState = useCallback(() => {
     const a = audioRef.current;
     if (!a || !("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
-    const duration = a.duration;
+    const duration = effectiveDuration(a, queueRef.current[indexRef.current]);
     if (!Number.isFinite(duration) || duration <= 0) return;
     try {
       navigator.mediaSession.setPositionState({
@@ -231,7 +271,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (!a || !t) return;
       const prevTrack = loadedIdRef.current ? queueRef.current.find((x) => x.id === loadedIdRef.current) : undefined;
       const prevListened = a.currentTime || 0;
-      const prevCompleted = a.ended;
+      const prevCompleted = a.ended || fakeEndedRef.current;
       commitIndex(i);
       setError(null);
       retriedRef.current.delete(t.id);
@@ -247,6 +287,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       // async work happens AFTER play() was issued
       if (prevTrack && !playRecordedRef.current) recordPlay(prevTrack, prevListened, prevCompleted);
       playRecordedRef.current = false;
+      fakeEndedRef.current = false;
       void refillRadio();
     },
     [commitIndex, progressStore, recordPlay, refillRadio, updateMediaMetadata],
@@ -316,8 +357,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     (seconds: number) => {
       const a = audioRef.current;
       if (!a || !Number.isFinite(seconds)) return;
-      const d = Number.isFinite(a.duration) ? a.duration : seconds;
-      a.currentTime = Math.min(Math.max(seconds, 0), d);
+      const d = effectiveDuration(a, queueRef.current[indexRef.current]) || seconds;
+      a.currentTime = Math.min(Math.max(seconds, 0), Math.max(0, d - 0.25));
       progressStore.set({ ...progressStore.get(), time: a.currentTime });
       updatePositionState();
     },
@@ -398,11 +439,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
-      const fallback = queueRef.current[indexRef.current]?.duration ?? 0;
+      const d = effectiveDuration(a, queueRef.current[indexRef.current]);
       progressStore.set({
-        time: a.currentTime,
-        duration: Number.isFinite(a.duration) && a.duration > 0 ? a.duration : fallback,
-        buffered,
+        time: Math.min(a.currentTime, d || a.currentTime),
+        duration: d,
+        buffered: Math.min(buffered, d || buffered),
       });
     };
 
@@ -413,9 +454,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         lastPositionUpdateRef.current = now;
         handlersRef.current.updatePositionState();
       }
+      const d = effectiveDuration(a, queueRef.current[indexRef.current]);
+      // Inflated duration (see effectiveDuration): the music is over, skip the trailing silence.
+      if (d > 0 && Number.isFinite(a.duration) && a.duration - d > 5 && a.currentTime >= d + 0.3 && !fakeEndedRef.current) {
+        fakeEndedRef.current = true;
+        onEnded();
+        return;
+      }
       // Pre-warm the next track ~20s before the end.
-      const d = a.duration;
-      if (Number.isFinite(d) && d > 0 && d - a.currentTime <= PREWARM_BEFORE_END_S) {
+      if (d > 0 && d - a.currentTime <= PREWARM_BEFORE_END_S) {
         const nextTrack = queueRef.current[indexRef.current + 1];
         if (nextTrack && !prewarmedRef.current.has(nextTrack.id)) {
           prewarmedRef.current.add(nextTrack.id);
@@ -449,6 +496,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onPlay = () => {
       setIsPlaying(true);
+      applyMediaHandlers(actionsRef);
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
     };
     const onPause = () => {
@@ -529,38 +577,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   /* ---------------- Media Session action handlers ---------------- */
 
-  const actionsRef = useRef({ play, pause, next, prev, seek });
+  const actionsRef = useRef<Actions>({ play, pause, next, prev, seek });
   actionsRef.current = { play, pause, next, prev, seek };
 
   useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    const ms = navigator.mediaSession;
-    const set = (action: MediaSessionAction, h: MediaSessionActionHandler | null) => {
-      try {
-        ms.setActionHandler(action, h);
-      } catch {
-        /* unsupported action */
-      }
-    };
-    set("play", () => actionsRef.current.play());
-    set("pause", () => actionsRef.current.pause());
-    set("nexttrack", () => actionsRef.current.next());
-    set("previoustrack", () => actionsRef.current.prev());
-    set("seekto", (d) => {
-      if (typeof d.seekTime === "number") actionsRef.current.seek(d.seekTime);
-    });
-    set("seekbackward", null);
-    set("seekforward", null);
-    return () => {
-      (["play", "pause", "nexttrack", "previoustrack", "seekto"] as MediaSessionAction[]).forEach((a) =>
-        set(a, null),
-      );
-    };
+    applyMediaHandlers(actionsRef);
   }, []);
 
   /* ---------------- persistence ---------------- */
 
   useEffect(() => {
+    // Wake the serverless function + YouTube session in the background on launch.
+    fetch(apiUrl("/api/warm")).catch(() => {});
     const stopLocal = initLibrarySync();
     void reconcileDownloads();
     const stopCloud = initCloudSync();
@@ -583,6 +611,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setRadioState(lastQueue.radio);
       const t = lastQueue.tracks[i];
       if (t) {
+        // Resolve the stream URL before the user taps play (cold start happens now, not on tap).
+        fetch(prepareUrl(t.id)).catch(() => {});
         updateMediaMetadata(t);
         progressStore.set({ time: 0, duration: t.duration, buffered: 0 });
       }

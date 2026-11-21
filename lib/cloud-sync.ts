@@ -28,6 +28,14 @@ interface AuthState {
   error: string | null;
 }
 
+function friendly(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/could not find the table|schema cache|does not exist/i.test(msg)) {
+    return "В Supabase нет таблиц новой версии — выполните supabase/schema.sql в SQL Editor";
+  }
+  return msg;
+}
+
 export const useAuth = create<AuthState>(() => ({ user: null, ready: false, status: "off", error: null }));
 
 export async function signInWithGoogle(): Promise<void> {
@@ -316,7 +324,7 @@ export async function flush(): Promise<void> {
   useAuth.setState({ status: "syncing" });
   flushing = pushDirty(sb, user)
     .then(() => useAuth.setState({ status: "synced", error: null }))
-    .catch((e: unknown) => useAuth.setState({ status: "error", error: e instanceof Error ? e.message : String(e) }))
+    .catch((e: unknown) => useAuth.setState({ status: "error", error: friendly(e) }))
     .finally(() => {
       flushing = null;
     });
@@ -495,7 +503,7 @@ async function initialSync(user: User) {
     await flush();
     if (useAuth.getState().status === "syncing") useAuth.setState({ status: "synced", error: null });
   } catch (e) {
-    useAuth.setState({ status: "error", error: e instanceof Error ? e.message : String(e) });
+    useAuth.setState({ status: "error", error: friendly(e) });
   }
 }
 

@@ -1,4 +1,4 @@
-import { getAudioSource, STREAM_FETCH_HEADERS, type AudioSource } from "@/lib/yt";
+import { getAudioSource, getYT, STREAM_FETCH_HEADERS, type AudioSource } from "@/lib/yt";
 import { VIDEO_ID_RE } from "@/lib/format";
 import { CORS_HEADERS, errorMessage, json, preflight } from "@/lib/http";
 
@@ -10,6 +10,9 @@ export const maxDuration = 60;
 const MAX_CHUNK = 10 * 1024 * 1024;
 
 const UPSTREAM_HEADERS = STREAM_FETCH_HEADERS;
+
+// Start the (slow) Innertube + player bootstrap as soon as this function instance boots.
+void getYT().catch(() => {});
 
 type ByteRange = { start: number; end: number | undefined };
 
@@ -86,7 +89,7 @@ async function handle(req: Request, method: "GET" | "HEAD"): Promise<Response> {
   const range = parseRange(rawRange);
 
   try {
-    let src = await getAudioSource(id, { fresh: params.has("fresh") });
+    let src = await getAudioSource(id, { fresh: params.has("fresh"), verify: params.has("fresh") });
 
     if (method === "HEAD" && src.contentLength) {
       const h = baseHeaders(src);
@@ -98,7 +101,7 @@ async function handle(req: Request, method: "GET" | "HEAD"): Promise<Response> {
     if (res.status !== 416 && !res.upstream.ok) {
       // URL expired / IP-bound to another instance / throttled — resolve again once.
       await res.upstream.body?.cancel().catch(() => {});
-      src = await getAudioSource(id, { fresh: true });
+      src = await getAudioSource(id, { fresh: true, verify: true, avoid: src.client });
       res = await fetchUpstream(src, range, rawRange, req.signal);
     }
 
