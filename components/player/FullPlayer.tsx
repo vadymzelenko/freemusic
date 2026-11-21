@@ -29,6 +29,7 @@ export function FullPlayer() {
     index,
     isPlaying,
     isBuffering,
+    error,
     radio,
     setRadio,
     toggle,
@@ -174,6 +175,12 @@ export function FullPlayer() {
                 <Heart className={cn("h-5 w-5 transition-colors", liked ? "fill-fg text-fg" : "text-fg/80")} />
               </motion.button>
             </div>
+
+            {error && (
+              <p className="mt-3 break-words rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12.5px] text-red-300">
+                {error}
+              </p>
+            )}
 
             {/* Timeline */}
             <div className="mt-5">

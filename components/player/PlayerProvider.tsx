@@ -62,6 +62,8 @@ interface PlayerContextValue {
   isBuffering: boolean;
   radio: boolean;
   radioLoading: boolean;
+  /** Last playback error shown to the user (cleared on next track). */
+  error: string | null;
   playerOpen: boolean;
   setPlayerOpen: (open: boolean) => void;
 
@@ -102,6 +104,7 @@ export function useProgress(): Progress {
 
 const PREWARM_BEFORE_END_S = 20;
 const RADIO_REFILL_THRESHOLD = 3;
+const MAX_CONSECUTIVE_FAILURES = 2;
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   // The ONE audio element for the whole app lifetime. Never re-created, never keyed.
@@ -114,6 +117,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [radio, setRadioState] = useState(true);
   const [radioLoading, setRadioLoading] = useState(false);
   const [playerOpen, setPlayerOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Refs mirror state so audio event handlers can act synchronously (no stale closures, no awaits).
   const queueRef = useRef<Track[]>([]);
@@ -121,6 +125,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const radioRef = useRef(true);
   const prewarmedRef = useRef<Set<string>>(new Set());
   const retriedRef = useRef<Set<string>>(new Set());
+  const failuresRef = useRef(0);
   const radioSeedRef = useRef<string | null>(null);
   const loadedIdRef = useRef<string | null>(null);
   const lastPositionUpdateRef = useRef(0);
@@ -217,6 +222,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const t = queueRef.current[i];
       if (!a || !t) return;
       commitIndex(i);
+      setError(null);
+      retriedRef.current.delete(t.id);
       loadedIdRef.current = t.id;
       a.src = streamUrl(t.id);
       if (autoplay) {
@@ -448,16 +455,33 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
       setIsBuffering(false);
+      failuresRef.current += 1;
+      // Several tracks in a row failed — the backend is broken, don't burn through the queue.
+      const nextIndex = indexRef.current + 1;
+      if (failuresRef.current >= MAX_CONSECUTIVE_FAILURES || nextIndex >= queueRef.current.length) {
+        failuresRef.current = 0;
+        a.pause();
+        setIsPlaying(false);
+        setError("Не удалось загрузить аудио");
+        fetch(prepareUrl(t.id))
+          .then((r) => r.json() as Promise<{ error?: string }>)
+          .then((d) => d.error && setError(`Не удалось загрузить аудио: ${d.error}`))
+          .catch(() => {});
+        return;
+      }
       // Skip broken track.
-      const i = indexRef.current + 1;
-      if (i < queueRef.current.length) handlersRef.current.loadIndex(i, true);
-      else setIsPlaying(false);
+      handlersRef.current.loadIndex(nextIndex, true);
+    };
+
+    const onPlaying = () => {
+      failuresRef.current = 0;
+      setIsBuffering(false);
     };
 
     a.addEventListener("timeupdate", onTimeUpdate);
     a.addEventListener("ended", onEnded);
     a.addEventListener("play", onPlay);
-    a.addEventListener("playing", onReady);
+    a.addEventListener("playing", onPlaying);
     a.addEventListener("pause", onPause);
     a.addEventListener("waiting", onWaiting);
     a.addEventListener("loadstart", onLoadStart);
@@ -471,7 +495,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       a.removeEventListener("timeupdate", onTimeUpdate);
       a.removeEventListener("ended", onEnded);
       a.removeEventListener("play", onPlay);
-      a.removeEventListener("playing", onReady);
+      a.removeEventListener("playing", onPlaying);
       a.removeEventListener("pause", onPause);
       a.removeEventListener("waiting", onWaiting);
       a.removeEventListener("loadstart", onLoadStart);
@@ -564,6 +588,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       isBuffering,
       radio,
       radioLoading,
+      error,
       playerOpen,
       setPlayerOpen,
       playTracks,
@@ -590,6 +615,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       isBuffering,
       radio,
       radioLoading,
+      error,
       playerOpen,
       playTracks,
       playTrack,
