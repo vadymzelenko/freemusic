@@ -13,6 +13,7 @@ import {
 } from "react";
 import { apiUrl, prepareUrl, streamUrl } from "@/lib/format";
 import type { Track } from "@/lib/types";
+import { initCloudSync } from "@/lib/cloud-sync";
 import { initLibrarySync, useHydrated, useLibrary } from "@/store/library";
 
 /* ------------------------------------------------------------------ */
@@ -516,7 +517,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   /* ---------------- persistence ---------------- */
 
-  useEffect(() => initLibrarySync(), []);
+  useEffect(() => {
+    const stopLocal = initLibrarySync();
+    const stopCloud = initCloudSync();
+    return () => {
+      stopLocal();
+      stopCloud();
+    };
+  }, []);
 
   const restoredRef = useRef(false);
   useEffect(() => {
