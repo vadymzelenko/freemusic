@@ -20,3 +20,21 @@ export function errorMessage(err: unknown): string {
 export function preflight(): Response {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
+
+/** Wraps a GET handler: JSON response with CDN caching, uniform error handling. */
+export function cachedJson<T>(
+  label: string,
+  cache: string,
+  fn: (params: URLSearchParams) => Promise<T | Response>,
+): (req: Request) => Promise<Response> {
+  return async (req: Request) => {
+    try {
+      const out = await fn(new URL(req.url).searchParams);
+      if (out instanceof Response) return out;
+      return json(out, { cache });
+    } catch (err) {
+      console.error(`[${label}]`, err);
+      return json({ error: errorMessage(err) }, { status: 502, cache: "no-store" });
+    }
+  };
+}

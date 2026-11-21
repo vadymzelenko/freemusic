@@ -14,6 +14,9 @@ import {
 import { apiUrl, prepareUrl, streamUrl } from "@/lib/format";
 import type { Track } from "@/lib/types";
 import { initCloudSync } from "@/lib/cloud-sync";
+import { offlineUrl, reconcileDownloads } from "@/lib/downloads";
+import { buildProfile, filterRadio } from "@/lib/recommend";
+import { isDownloaded } from "@/store/downloads";
 import { initLibrarySync, useHydrated, useLibrary } from "@/store/library";
 
 /* ------------------------------------------------------------------ */
@@ -126,6 +129,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const prewarmedRef = useRef<Set<string>>(new Set());
   const retriedRef = useRef<Set<string>>(new Set());
   const failuresRef = useRef(0);
+  const playRecordedRef = useRef(false);
   const radioSeedRef = useRef<string | null>(null);
   const loadedIdRef = useRef<string | null>(null);
   const lastPositionUpdateRef = useRef(0);
@@ -135,6 +139,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const hydrated = useHydrated();
   const saveQueue = useLibrary((s) => s.saveQueue);
   const remember = useLibrary((s) => s.remember);
+  const recordPlay = useLibrary((s) => s.recordPlay);
 
   /* ---------------- queue mutation helpers ---------------- */
 
@@ -196,7 +201,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (!res.ok) throw new Error(String(res.status));
         const data = (await res.json()) as { tracks?: Track[] };
         const existing = new Set(queueRef.current.map((t) => t.id));
-        const fresh = (data.tracks ?? []).filter((t) => !existing.has(t.id));
+        const fresh = filterRadio(
+          (data.tracks ?? []).filter((t) => !existing.has(t.id)),
+          buildProfile(useLibrary.getState()),
+        );
         if (!fresh.length) return false;
         commitQueue([...queueRef.current, ...fresh]);
         return true;
@@ -221,11 +229,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const a = audioRef.current;
       const t = queueRef.current[i];
       if (!a || !t) return;
+      const prevTrack = loadedIdRef.current ? queueRef.current.find((x) => x.id === loadedIdRef.current) : undefined;
+      const prevListened = a.currentTime || 0;
+      const prevCompleted = a.ended;
       commitIndex(i);
       setError(null);
       retriedRef.current.delete(t.id);
       loadedIdRef.current = t.id;
-      a.src = streamUrl(t.id);
+      // Downloaded tracks come from Cache Storage via the service worker; the check is synchronous.
+      a.src = isDownloaded(t.id) ? offlineUrl(t.id) : streamUrl(t.id);
       if (autoplay) {
         const p = a.play();
         if (p) p.catch(() => setIsPlaying(false));
@@ -233,9 +245,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       updateMediaMetadata(t);
       progressStore.set({ time: 0, duration: t.duration, buffered: 0 });
       // async work happens AFTER play() was issued
+      if (prevTrack && !playRecordedRef.current) recordPlay(prevTrack, prevListened, prevCompleted);
+      playRecordedRef.current = false;
       void refillRadio();
     },
-    [commitIndex, progressStore, refillRadio, updateMediaMetadata],
+    [commitIndex, progressStore, recordPlay, refillRadio, updateMediaMetadata],
   );
 
   /* ---------------- public actions ---------------- */
@@ -420,6 +434,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
       setIsPlaying(false);
+      const done = queueRef.current[indexRef.current];
+      if (done && !playRecordedRef.current) {
+        playRecordedRef.current = true;
+        useLibrary.getState().recordPlay(done, a.currentTime || done.duration, true);
+      }
       // Fallback (radio refill didn't land in time).
       if (radioRef.current) {
         void handlersRef.current
@@ -543,6 +562,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stopLocal = initLibrarySync();
+    void reconcileDownloads();
     const stopCloud = initCloudSync();
     return () => {
       stopLocal();

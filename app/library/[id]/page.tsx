@@ -1,10 +1,12 @@
 "use client";
 
-import { ChevronLeft, Heart, Pencil, Play, Shuffle, Trash2, X } from "lucide-react";
+import { ChevronLeft, Heart, Pencil, Play, Shuffle, ThumbsDown, Trash2, X } from "lucide-react";
+import { tracksWord } from "@/lib/plural";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { TrackRow } from "@/components/TrackRow";
+import { DownloadAllButton } from "@/components/DownloadAllButton";
 import { Cover } from "@/components/ui/Cover";
 import { Sheet } from "@/components/ui/Sheet";
 import { TrackListSkeleton } from "@/components/ui/Skeleton";
@@ -25,9 +27,11 @@ export default function CollectionPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const hydrated = useHydrated();
-  const isLiked = id === "liked";
+  const isDisliked = id === "disliked";
+  const isLiked = id === "liked" || isDisliked;
   const playlist = useLibrary((s) => s.playlists.find((p) => p.id === id));
-  const likedIds = useLibrary((s) => s.likedIds);
+  const likedIds = useLibrary((s) => (isDisliked ? s.dislikedIds : s.likedIds));
+  const toggleDislike = useLibrary((s) => s.toggleDislike);
   const all = useLibrary((s) => s.tracks);
   const removeFromPlaylist = useLibrary((s) => s.removeFromPlaylist);
   const renamePlaylist = useLibrary((s) => s.renamePlaylist);
@@ -42,7 +46,7 @@ export default function CollectionPage() {
     return ids.map((x) => all[x]).filter((t): t is Track => !!t);
   }, [isLiked, likedIds, playlist, all]);
 
-  const title = isLiked ? "Любимые треки" : (playlist?.name ?? "Плейлист");
+  const title = isDisliked ? "Не нравится" : isLiked ? "Любимые треки" : (playlist?.name ?? "Плейлист");
 
   if (hydrated && !isLiked && !playlist) {
     return (
@@ -103,13 +107,13 @@ export default function CollectionPage() {
       <div className="flex flex-col items-center px-4 pt-4 pb-5 text-center">
         {isLiked ? (
           <div className="flex h-40 w-40 items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-200 to-zinc-500 shadow-2xl">
-            <Heart className="h-14 w-14 fill-bg text-bg" />
+            {isDisliked ? <ThumbsDown className="h-14 w-14 fill-bg text-bg" /> : <Heart className="h-14 w-14 fill-bg text-bg" />}
           </div>
         ) : (
           <Cover src={tracks[0]?.cover} alt="" className="h-40 w-40 shadow-2xl" rounded="rounded-2xl" />
         )}
         <h1 className="mt-4 text-[22px] font-bold tracking-tight">{title}</h1>
-        <p className="mt-0.5 text-[13px] text-muted">{hydrated ? `${tracks.length} треков` : " "}</p>
+        <p className="mt-0.5 text-[13px] text-muted">{hydrated ? `${tracksWord(tracks.length)}` : " "}</p>
         <div className="mt-4 flex w-full max-w-xs gap-2">
           <button
             type="button"
@@ -127,6 +131,7 @@ export default function CollectionPage() {
           >
             <Shuffle className="h-4 w-4" /> Перемешать
           </button>
+          {!isDisliked && <DownloadAllButton tracks={tracks} />}
         </div>
       </div>
 
@@ -134,7 +139,11 @@ export default function CollectionPage() {
         <TrackListSkeleton count={6} />
       ) : tracks.length === 0 ? (
         <p className="px-4 pt-4 text-center text-sm text-subtle">
-          {isLiked ? "Отмечайте треки сердечком — они появятся здесь." : "Плейлист пуст."}
+          {isDisliked
+            ? "Здесь будут треки с дизлайком — их не будет в рекомендациях."
+            : isLiked
+              ? "Отмечайте треки сердечком — они появятся здесь."
+              : "Плейлист пуст."}
         </p>
       ) : (
         <div className="border-t border-line pt-1">
@@ -150,7 +159,9 @@ export default function CollectionPage() {
               trailing={
                 <button
                   type="button"
-                  onClick={() => (isLiked ? toggleLike(t) : playlist && removeFromPlaylist(playlist.id, t.id))}
+                  onClick={() =>
+                    isDisliked ? toggleDislike(t) : isLiked ? toggleLike(t) : playlist && removeFromPlaylist(playlist.id, t.id)
+                  }
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-white/10"
                   aria-label="Удалить"
                 >

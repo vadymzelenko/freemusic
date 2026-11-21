@@ -73,7 +73,7 @@ export function hiResCover(thumbs: Thumb[] | undefined, videoId: string): string
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-function parseDuration(text: string | undefined): number {
+export function parseDuration(text: string | undefined): number {
   if (!text) return 0;
   return text
     .split(":")
@@ -81,7 +81,7 @@ function parseDuration(text: string | undefined): number {
     .reduce((acc, n) => (Number.isFinite(n) ? acc * 60 + n : acc), 0);
 }
 
-function textOf(v: unknown): string {
+export function textOf(v: unknown): string {
   if (typeof v === "string") return v;
   if (v && typeof v === "object" && "toString" in v) {
     const s = String(v);
@@ -90,20 +90,35 @@ function textOf(v: unknown): string {
   return "";
 }
 
-function fromListItem(item: YTNodes.MusicResponsiveListItem): Track | null {
+/** Upscales any googleusercontent image URL (artist photos, album art). */
+export function hiResImage(thumbs: Thumb[] | undefined, size = 544, crop = false): string {
+  const best = thumbs?.length ? [...thumbs].sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0] : undefined;
+  const url = best?.url ?? "";
+  if (/googleusercontent\.com|ggpht\.com/.test(url)) {
+    const suffix = `=w${size}-h${size}${crop ? "-p" : ""}-l90-rj`;
+    return url.replace(/=w\d+-h\d+[^/]*$/, suffix).replace(/=s\d+[^/]*$/, `=s${size}${crop ? "-c" : ""}`);
+  }
+  return url.startsWith("//") ? `https:${url}` : url;
+}
+
+export function fromListItem(
+  item: YTNodes.MusicResponsiveListItem,
+  fallback?: { cover?: string; album?: string; albumId?: string; artist?: string; artistId?: string },
+): Track | null {
   const id = item.id;
   if (!id || (item.item_type !== "song" && item.item_type !== "video")) return null;
-  const artists =
-    item.artists?.map((a) => a.name).filter(Boolean) ??
-    item.authors?.map((a) => a.name).filter(Boolean) ??
-    (item.author?.name ? [item.author.name] : []);
+  const people = item.artists?.length ? item.artists : item.authors?.length ? item.authors : item.author ? [item.author] : [];
+  const names = people.map((a) => a.name).filter(Boolean);
+  const thumbs = item.thumbnails;
   return {
     id,
     title: item.title ?? "Unknown",
-    artist: artists.join(", ") || "Unknown",
-    album: item.album?.name || undefined,
+    artist: names.join(", ") || fallback?.artist || "Unknown",
+    artistId: people.find((a) => a.channel_id)?.channel_id || fallback?.artistId,
+    album: item.album?.name || fallback?.album || undefined,
+    albumId: item.album?.id || fallback?.albumId || undefined,
     duration: item.duration?.seconds ?? parseDuration(item.duration?.text),
-    cover: hiResCover(item.thumbnails, id),
+    cover: thumbs?.length ? hiResCover(thumbs, id) : fallback?.cover || hiResCover(undefined, id),
   };
 }
 
@@ -114,13 +129,15 @@ function fromPanelVideo(v: YTNodes.PlaylistPanelVideo): Track | null {
     id: v.video_id,
     title: textOf(v.title) || "Unknown",
     artist: artists.join(", ") || v.author || "Unknown",
+    artistId: v.artists?.find((a) => a.channel_id)?.channel_id,
     album: v.album?.name || undefined,
+    albumId: v.album?.id || undefined,
     duration: v.duration?.seconds ?? parseDuration(v.duration?.text),
     cover: hiResCover(v.thumbnail, v.video_id),
   };
 }
 
-function dedupe(tracks: (Track | null)[]): Track[] {
+export function dedupe(tracks: (Track | null)[]): Track[] {
   const seen = new Set<string>();
   const out: Track[] = [];
   for (const t of tracks) {
@@ -135,28 +152,6 @@ function dedupe(tracks: (Track | null)[]): Track[] {
 /* ------------------------------------------------------------------ */
 /* Search / related                                                    */
 /* ------------------------------------------------------------------ */
-
-const searchCache = new TTLCache<Track[]>(10 * 60 * 1000, 300);
-
-export async function searchTracks(query: string): Promise<Track[]> {
-  const key = query.trim().toLowerCase();
-  const hit = searchCache.get(key);
-  if (hit) return hit;
-
-  const yt = await getYT();
-  const res = await yt.music.search(query, { type: "song" });
-  const items: (Track | null)[] = [];
-  for (const shelf of res.contents ?? []) {
-    if (shelf.is(YTNodes.MusicShelf)) {
-      for (const item of shelf.contents) {
-        if (item.is(YTNodes.MusicResponsiveListItem)) items.push(fromListItem(item));
-      }
-    }
-  }
-  const tracks = dedupe(items);
-  searchCache.set(key, tracks);
-  return tracks;
-}
 
 const relatedCache = new TTLCache<Track[]>(30 * 60 * 1000, 300);
 

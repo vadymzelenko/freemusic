@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal } from "lucide-react";
+import { ArrowDownCircle, Loader2, MoreHorizontal, ThumbsDown } from "lucide-react";
 import { memo } from "react";
 import { Cover } from "@/components/ui/Cover";
 import { Equalizer } from "@/components/ui/Equalizer";
@@ -9,6 +9,8 @@ import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { Track } from "@/lib/types";
 import { useUI } from "@/store/ui";
+import { useDownloads } from "@/store/downloads";
+import { useReaction } from "@/store/library";
 
 interface Props {
   track: Track;
@@ -22,12 +24,15 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
   const { current, isPlaying } = usePlayer();
   const openActions = useUI((s) => s.openActions);
   const active = current?.id === track.id;
+  const downloaded = useDownloads((s) => !!s.items[track.id]);
+  const dl = useDownloads((s) => s.active[track.id]);
+  const reaction = useReaction(track.id);
 
   return (
     <div
       className={cn(
         "group flex items-center gap-3 rounded-lg px-4 py-2 transition-colors active:bg-white/[0.04] md:hover:bg-white/[0.03]",
-        dimmed && "opacity-50",
+        (dimmed || reaction === -1) && "opacity-50",
       )}
     >
       <button
@@ -51,9 +56,12 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
           <div className={cn("truncate text-[15px] font-medium leading-tight", active ? "text-fg" : "text-fg/95")}>
             {track.title}
           </div>
-          <div className="mt-0.5 truncate text-[13px] text-muted">
-            {track.artist}
-            {track.album ? <span className="text-subtle"> · {track.album}</span> : null}
+          <div className="mt-0.5 flex items-center gap-1 truncate text-[13px] text-muted">
+            {downloaded && <ArrowDownCircle className="h-3.5 w-3.5 shrink-0 fill-fg/90 text-bg" aria-label="Скачано" />}
+            {dl && dl.state !== "error" && <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-label="Скачивается" />}
+            {reaction === -1 && <ThumbsDown className="h-3 w-3 shrink-0" aria-label="Не нравится" />}
+            <span className="truncate">{track.artist}
+            {track.album ? <span className="text-subtle"> · {track.album}</span> : null}</span>
           </div>
         </div>
         {track.duration > 0 && (

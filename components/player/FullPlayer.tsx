@@ -5,13 +5,14 @@ import {
   ChevronDown,
   Heart,
   ListMusic,
-  ListPlus,
+  MoreHorizontal,
   Loader2,
   Pause,
   Play,
   Radio,
   SkipBack,
   SkipForward,
+  ThumbsDown,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -39,8 +40,10 @@ export function FullPlayer() {
     setPlayerOpen,
   } = usePlayer();
   const liked = useLibrary((s) => (current ? s.likedIds.includes(current.id) : false));
+  const disliked = useLibrary((s) => (current ? s.dislikedIds.includes(current.id) : false));
   const toggleLike = useLibrary((s) => s.toggleLike);
-  const openPicker = useUI((s) => s.openPlaylistPicker);
+  const toggleDislike = useLibrary((s) => s.toggleDislike);
+  const openActions = useUI((s) => s.openActions);
   const toast = useUI((s) => s.showToast);
   const dragControls = useDragControls();
 
@@ -162,8 +165,35 @@ export function FullPlayer() {
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-[22px] font-semibold leading-tight tracking-tight">{current.title}</h2>
-                <p className="truncate text-[17px] text-muted">{current.artist}</p>
+                {current.artistId ? (
+                  <Link
+                    href={`/artist/${current.artistId}`}
+                    onClick={close}
+                    className="block truncate text-[17px] text-muted hover:text-fg"
+                  >
+                    {current.artist}
+                  </Link>
+                ) : (
+                  <p className="truncate text-[17px] text-muted">{current.artist}</p>
+                )}
               </div>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.85 }}
+                onClick={() => {
+                  const wasDisliked = disliked;
+                  toggleDislike(current);
+                  if (!wasDisliked) {
+                    toast("Больше не будем это предлагать");
+                    next();
+                  }
+                }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white/[0.04]"
+                aria-label={disliked ? "Убрать дизлайк" : "Не нравится"}
+                aria-pressed={disliked}
+              >
+                <ThumbsDown className={cn("h-5 w-5 transition-colors", disliked ? "fill-fg text-fg" : "text-fg/80")} />
+              </motion.button>
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.85 }}
@@ -250,11 +280,11 @@ export function FullPlayer() {
               </div>
               <button
                 type="button"
-                onClick={() => openPicker(current)}
+                onClick={() => openActions(current)}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted hover:text-fg"
-                aria-label="Добавить в плейлист"
+                aria-label="Ещё"
               >
-                <ListPlus className="h-4 w-4" />
+                <MoreHorizontal className="h-4 w-4" />
               </button>
             </div>
           </div>
