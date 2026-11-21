@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { ListMusic, Loader2, Radio, X } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
@@ -16,7 +17,7 @@ export default function QueuePage() {
 
   return (
     <div>
-      <PageHeader title="Очередь">
+      <PageHeader title={tx("Очередь")}>
         <button
           type="button"
           onClick={() => setRadio(!radio)}
@@ -26,7 +27,7 @@ export default function QueuePage() {
           )}
           aria-pressed={radio}
         >
-          <Radio className="h-4 w-4" /> Радио
+          <Radio className="h-4 w-4" />{tx(" Радио")}
         </button>
       </PageHeader>
 
@@ -35,19 +36,19 @@ export default function QueuePage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-card">
             <ListMusic className="h-6 w-6 text-muted" />
           </div>
-          <p className="text-[15px] font-medium">Очередь пуста</p>
+          <p className="text-[15px] font-medium">{tx("Очередь пуста")}</p>
           <p className="mt-1 text-sm text-subtle">
             <Link href="/" className="underline underline-offset-4">
-              Найдите трек
+              {tx("Найдите трек")}
             </Link>
-            , и радио подберёт похожие.
+            {tx(", и радио подберёт похожие.")}
           </p>
         </div>
       ) : (
         <>
           <section>
             <h2 className="px-4 pt-2 pb-1 text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">
-              Сейчас играет
+              {tx("Сейчас играет")}
             </h2>
             <TrackRow track={current} onPlay={() => jumpTo(index)} />
           </section>
@@ -55,11 +56,11 @@ export default function QueuePage() {
           <section className="mt-4">
             <div className="flex items-center justify-between px-4 pb-1">
               <h2 className="text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">
-                Далее {upcoming.length > 0 && <span className="text-subtle/70">· {upcoming.length}</span>}
+                {tx("Далее ")}{upcoming.length > 0 && <span className="text-subtle/70">· {upcoming.length}</span>}
               </h2>
               {upcoming.length > 0 && (
                 <button type="button" onClick={clearUpcoming} className="text-[13px] text-muted hover:text-fg">
-                  Очистить
+                  {tx("Очистить")}
                 </button>
               )}
             </div>
@@ -74,8 +75,8 @@ export default function QueuePage() {
                     <button
                       type="button"
                       onClick={() => removeFromQueue(i)}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-white/10"
-                      aria-label="Убрать из очереди"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-fg/10"
+                      aria-label={tx("Убрать из очереди")}
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -86,7 +87,7 @@ export default function QueuePage() {
             {radioLoading && (
               <>
                 <div className="flex items-center gap-2 px-4 py-2 text-[13px] text-subtle">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Подбираем похожие треки…
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />{tx(" Подбираем похожие треки…")}
                 </div>
                 <TrackRowSkeleton />
                 <TrackRowSkeleton />
@@ -94,7 +95,7 @@ export default function QueuePage() {
             )}
             {!radioLoading && upcoming.length === 0 && (
               <p className="px-4 py-3 text-sm text-subtle">
-                {radio ? "Радио добавит треки автоматически." : "Включите «Радио» для бесконечного воспроизведения."}
+                {radio ? tx("Радио добавит треки автоматически.") : tx("Включите «Радио» для бесконечного воспроизведения.")}
               </p>
             )}
           </section>
@@ -102,7 +103,7 @@ export default function QueuePage() {
           {history.length > 0 && (
             <section className="mt-6">
               <h2 className="px-4 pb-1 text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">
-                Ранее
+                {tx("Ранее")}
               </h2>
               {history.map((t, i) => (
                 <TrackRow key={`${t.id}-${i}`} track={t} dimmed onPlay={() => jumpTo(i)} />

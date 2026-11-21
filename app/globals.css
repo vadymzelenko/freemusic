@@ -20,6 +20,21 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --tabbar-h: 56px;
   --mini-h: 64px;
+  --sidebar-w: 0px;
+}
+/* tablet: icon sidebar + bottom player bar, no tab bar */
+@media (min-width: 768px) {
+  :root {
+    --tabbar-h: 0px;
+    --mini-h: 84px;
+    --sidebar-w: 76px;
+  }
+}
+/* desktop: full sidebar */
+@media (min-width: 1024px) {
+  :root {
+    --sidebar-w: 248px;
+  }
 }
 
 html,
@@ -38,7 +53,7 @@ body {
 }
 
 ::selection {
-  background: rgb(255 255 255 / 0.2);
+  background: color-mix(in srgb, var(--color-fg) 20%, transparent);
 }
 
 input[type="search"]::-webkit-search-cancel-button {
@@ -63,6 +78,33 @@ input[type="search"]::-webkit-search-cancel-button {
 .pb-app {
   padding-bottom: calc(var(--tabbar-h) + var(--mini-h) + var(--safe-bottom) + 24px);
 }
+.ml-sidebar {
+  margin-left: var(--sidebar-w);
+}
+
+/* range input used for volume */
+input[type="range"].vol {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, var(--color-fg) var(--p, 100%), color-mix(in srgb, var(--color-fg) 15%, transparent) var(--p, 100%));
+  cursor: pointer;
+}
+input[type="range"].vol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--color-fg);
+}
+input[type="range"].vol::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--color-fg);
+}
 
 @keyframes shimmer {
   100% {
@@ -72,14 +114,14 @@ input[type="search"]::-webkit-search-cancel-button {
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: rgb(255 255 255 / 0.05);
+  background: color-mix(in srgb, var(--color-fg) 6%, transparent);
 }
 .skeleton::after {
   content: "";
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-fg) 7%, transparent), transparent);
   animation: shimmer 1.4s infinite;
 }
 
@@ -107,4 +149,63 @@ textarea,
 }
 img {
   -webkit-user-drag: none;
+}
+
+/* ───────────── Themes (see lib/themes.ts) ───────────── */
+html[data-theme="oled"] {
+  --color-bg: #000000;
+  --color-card: #0b0b0c;
+  --color-elevated: #151517;
+}
+html[data-theme="midnight"] {
+  --color-bg: #0a0f1f;
+  --color-card: #10172d;
+  --color-elevated: #172040;
+  --color-line: rgb(165 180 252 / 0.12);
+  --color-line-strong: rgb(165 180 252 / 0.2);
+  --color-fg: #eef2ff;
+  --color-muted: #a7b1d4;
+  --color-subtle: #6c779c;
+}
+html[data-theme="forest"] {
+  --color-bg: #08110d;
+  --color-card: #0f1a15;
+  --color-elevated: #15241d;
+  --color-line: rgb(167 243 208 / 0.1);
+  --color-line-strong: rgb(167 243 208 / 0.18);
+  --color-fg: #ecfdf3;
+  --color-muted: #a0bdae;
+  --color-subtle: #6a887a;
+}
+html[data-theme="rose"] {
+  --color-bg: #13090d;
+  --color-card: #1b1015;
+  --color-elevated: #25161e;
+  --color-line: rgb(251 207 232 / 0.1);
+  --color-line-strong: rgb(251 207 232 / 0.18);
+  --color-fg: #fff1f6;
+  --color-muted: #c9a5b4;
+  --color-subtle: #8d6b7a;
+}
+html[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f7f7f8;
+  --color-card: #ffffff;
+  --color-elevated: #eeeef0;
+  --color-line: rgb(0 0 0 / 0.08);
+  --color-line-strong: rgb(0 0 0 / 0.16);
+  --color-fg: #0b0b0d;
+  --color-muted: #55555e;
+  --color-subtle: #8e8e98;
+}
+html[data-theme="sepia"] {
+  color-scheme: light;
+  --color-bg: #f5efe4;
+  --color-card: #fffaf1;
+  --color-elevated: #ece3d3;
+  --color-line: rgb(80 55 25 / 0.12);
+  --color-line-strong: rgb(80 55 25 / 0.2);
+  --color-fg: #2a2017;
+  --color-muted: #6d5c49;
+  --color-subtle: #a08e79;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { Check, ListMusic, Plus } from "lucide-react";
 import { tracksWord } from "@/lib/plural";
 import { useState } from "react";
@@ -25,7 +26,7 @@ export function PlaylistPickerSheet() {
     <Sheet
       open={!!track}
       onClose={onClose}
-      title={<div className="text-[15px] font-semibold">Добавить в плейлист</div>}
+      title={<div className="text-[15px] font-semibold">{tx("Добавить в плейлист")}</div>}
     >
       {track && (
         <div className="border-t border-line">
@@ -35,14 +36,14 @@ export function PlaylistPickerSheet() {
               e.preventDefault();
               if (!name.trim()) return;
               createPlaylist(name, track);
-              toast(`Создан «${name.trim()}»`);
+              toast(tx("Создан «{name}»", { name: name.trim() }));
               onClose();
             }}
           >
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Новый плейлист"
+              placeholder={tx("Новый плейлист")}
               className="h-10 flex-1 rounded-lg border border-line bg-bg px-3 text-[15px] outline-none placeholder:text-subtle focus:border-line-strong"
             />
             <button
@@ -50,11 +51,11 @@ export function PlaylistPickerSheet() {
               disabled={!name.trim()}
               className="flex h-10 items-center gap-1.5 rounded-lg bg-fg px-3 text-sm font-medium text-bg transition-opacity disabled:opacity-30"
             >
-              <Plus className="h-4 w-4" /> Создать
+              <Plus className="h-4 w-4" />{tx(" Создать")}
             </button>
           </form>
           {playlists.length === 0 ? (
-            <p className="px-5 pb-4 text-sm text-subtle">Плейлистов пока нет.</p>
+            <p className="px-5 pb-4 text-sm text-subtle">{tx("Плейлистов пока нет.")}</p>
           ) : (
             playlists.map((p) => {
               const has = p.trackIds.includes(track.id);
@@ -65,10 +66,10 @@ export function PlaylistPickerSheet() {
                   disabled={has}
                   onClick={() => {
                     addToPlaylist(p.id, track);
-                    toast(`Добавлено в «${p.name}»`);
+                    toast(tx("Добавлено в «{name}»", { name: p.name }));
                     onClose();
                   }}
-                  className="flex w-full items-center gap-4 px-5 py-3 text-left active:bg-white/[0.05] disabled:opacity-50 md:hover:bg-white/[0.03]"
+                  className="flex w-full items-center gap-4 px-5 py-3 text-left active:bg-fg/[0.05] disabled:opacity-50 md:hover:bg-fg/[0.03]"
                 >
                   <span className="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-bg text-muted">
                     <ListMusic className="h-5 w-5" />

@@ -4,6 +4,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import type { FollowedArtist, PlayEvent, Playlist, Track } from "@/lib/types";
 import { getSupabase } from "@/lib/supabase";
+import { tx } from "@/lib/i18n";
 import { EMPTY_LIBRARY, MAX_PLAYS, useLibrary, type LibraryData } from "@/store/library";
 
 /*
@@ -33,7 +34,7 @@ interface AuthState {
 function friendly(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
   if (/could not find the table|schema cache|does not exist/i.test(msg)) {
-    return "В Supabase нет таблиц новой версии — выполните supabase/schema.sql в SQL Editor";
+    return tx("В Supabase нет таблиц новой версии — выполните supabase/schema.sql в SQL Editor");
   }
   return msg;
 }
@@ -145,7 +146,9 @@ function diff(next: LibraryData, prev: LibraryData) {
     next.lastQueue !== prev.lastQueue ||
     next.searchHistory !== prev.searchHistory ||
     next.onboarded !== prev.onboarded ||
-    next.hiddenSections !== prev.hiddenSections
+    next.hiddenSections !== prev.hiddenSections ||
+    next.theme !== prev.theme ||
+    next.lang !== prev.lang
   ) {
     dirty.state = true;
   }
@@ -297,7 +300,7 @@ async function pushDirty(sb: SupabaseClient, user: User) {
             last_queue: s.lastQueue,
             search_history: s.searchHistory,
             onboarded: s.onboarded,
-            ui_prefs: { hiddenSections: s.hiddenSections },
+            ui_prefs: { hiddenSections: s.hiddenSections, theme: s.theme, lang: s.lang },
             updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id" },
@@ -413,7 +416,7 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
     last_queue?: LibraryData["lastQueue"];
     search_history?: string[];
     onboarded?: boolean;
-    ui_prefs?: { hiddenSections?: string[] } | null;
+    ui_prefs?: { hiddenSections?: string[]; theme?: string; lang?: string } | null;
   } | null;
 
   return {
@@ -427,6 +430,8 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
     searchHistory: st?.search_history ?? [],
     onboarded: st?.onboarded ?? false,
     hiddenSections: st?.ui_prefs?.hiddenSections ?? [],
+    theme: st?.ui_prefs?.theme ?? EMPTY_LIBRARY.theme,
+    lang: st?.ui_prefs?.lang ?? "",
     lastQueue: st?.last_queue?.tracks ? st.last_queue : EMPTY_LIBRARY.lastQueue,
   };
 }
@@ -465,6 +470,8 @@ function merge(local: LibraryData, remote: LibraryData): LibraryData {
     searchHistory: uniq([...local.searchHistory, ...remote.searchHistory]).slice(0, 15),
     onboarded: local.onboarded || remote.onboarded || remote.artists.length > 0,
     hiddenSections: remote.hiddenSections.length ? remote.hiddenSections : local.hiddenSections,
+    theme: remote.theme !== EMPTY_LIBRARY.theme ? remote.theme : local.theme,
+    lang: remote.lang || local.lang,
     lastQueue: local.lastQueue.tracks.length ? local.lastQueue : remote.lastQueue,
   };
 }
@@ -483,6 +490,8 @@ function snapshot(): LibraryData {
     searchHistory: s.searchHistory,
     onboarded: s.onboarded,
     hiddenSections: s.hiddenSections,
+    theme: s.theme,
+    lang: s.lang,
     lastQueue: s.lastQueue,
   };
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronRight, Download, ThumbsUp, ListMusic, Plus, Settings, UsersRound } from "lucide-react";
-import { tracksWord } from "@/lib/plural";
+import { tx } from "@/lib/i18n";
+import { BarChart3, ChevronRight, Download, ThumbsUp, ListMusic, Plus, Settings, UsersRound } from "lucide-react";
+import { artistsWord, tracksWord } from "@/lib/plural";
 import { useDownloads } from "@/store/downloads";
 import Link from "next/link";
 import { useState } from "react";
@@ -42,21 +43,28 @@ export default function LibraryPage() {
 
   return (
     <div>
-      <PageHeader title="Медиатека">
+      <PageHeader title={tx("Медиатека")}>
         <div className="flex gap-2">
         <Link
+          href="/stats"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-fg/10"
+          aria-label={tx("Статистика")}
+        >
+          <BarChart3 className="h-4 w-4" />
+        </Link>
+        <Link
           href="/settings"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-white/10"
-          aria-label="Настройки"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-fg/10"
+          aria-label={tx("Настройки")}
         >
           <Settings className="h-4 w-4" />
         </Link>
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="flex h-9 items-center gap-1.5 rounded-full border border-line bg-card px-3 text-[13px] font-medium text-fg/90 active:bg-white/10"
+          className="flex h-9 items-center gap-1.5 rounded-full border border-line bg-card px-3 text-[13px] font-medium text-fg/90 active:bg-fg/10"
         >
-          <Plus className="h-4 w-4" /> Плейлист
+          <Plus className="h-4 w-4" />{tx(" Плейлист")}
         </button>
         </div>
       </PageHeader>
@@ -66,13 +74,13 @@ export default function LibraryPage() {
       <div className="space-y-1 px-2 pt-3">
         <Link
           href="/library/liked"
-          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-200 to-zinc-500">
             <ThumbsUp className="h-6 w-6 fill-bg text-bg" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-medium">Любимые треки</div>
+            <div className="text-[15px] font-medium">{tx("Любимые треки")}</div>
             <div className="text-[13px] text-muted">{hydrated ? `${tracksWord(likedCount)}` : " "}</div>
           </div>
           <ChevronRight className="h-4 w-4 text-subtle" />
@@ -80,28 +88,28 @@ export default function LibraryPage() {
 
         <Link
           href="/library/downloads"
-          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-line bg-gradient-to-br from-zinc-700 to-zinc-900">
-            <Download className="h-6 w-6 text-fg" />
+            <Download className="h-6 w-6 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-medium">Скачанное</div>
-            <div className="text-[13px] text-muted">{tracksWord(downloadsCount)} · офлайн</div>
+            <div className="text-[15px] font-medium">{tx("Скачанное")}</div>
+            <div className="text-[13px] text-muted">{tracksWord(downloadsCount)}{tx(" · офлайн")}</div>
           </div>
           <ChevronRight className="h-4 w-4 text-subtle" />
         </Link>
 
         <Link
           href="/onboarding"
-          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-line bg-card">
             <UsersRound className="h-6 w-6 text-muted" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-medium">Мои артисты</div>
-            <div className="text-[13px] text-muted">{hydrated ? `${artistsCount} артистов` : "\u00a0"}</div>
+            <div className="text-[15px] font-medium">{tx("Мои артисты")}</div>
+            <div className="text-[13px] text-muted">{hydrated ? artistsWord(artistsCount) : "\u00a0"}</div>
           </div>
           <ChevronRight className="h-4 w-4 text-subtle" />
         </Link>
@@ -121,7 +129,7 @@ export default function LibraryPage() {
             <Link
               key={p.id}
               href={`/library/${p.id}`}
-              className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+              className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
             >
               <Mosaic covers={p.trackIds.map((id) => tracks[id]?.cover).filter((c): c is string => !!c)} />
               <div className="min-w-0 flex-1">
@@ -135,7 +143,7 @@ export default function LibraryPage() {
 
         {hydrated && playlists.length === 0 && (
           <p className="px-2 pt-6 text-center text-sm text-subtle">
-            Создайте плейлист или добавьте трек через меню «…».
+            {tx("Создайте плейлист или добавьте трек через меню «…».")}
           </p>
         )}
       </div>
@@ -143,7 +151,7 @@ export default function LibraryPage() {
       <Sheet
         open={creating}
         onClose={() => setCreating(false)}
-        title={<div className="text-[15px] font-semibold">Новый плейлист</div>}
+        title={<div className="text-[15px] font-semibold">{tx("Новый плейлист")}</div>}
       >
         <form
           className="flex gap-2 px-5 pb-2"
@@ -159,7 +167,7 @@ export default function LibraryPage() {
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Название"
+            placeholder={tx("Название")}
             className="h-11 flex-1 rounded-lg border border-line bg-bg px-3 text-[16px] outline-none placeholder:text-subtle focus:border-line-strong"
           />
           <button
@@ -167,7 +175,7 @@ export default function LibraryPage() {
             disabled={!name.trim()}
             className="h-11 rounded-lg bg-fg px-4 text-sm font-medium text-bg disabled:opacity-30"
           >
-            Создать
+            {tx("Создать")}
           </button>
         </form>
       </Sheet>

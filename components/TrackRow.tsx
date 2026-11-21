@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { ArrowDownCircle, Loader2, MoreHorizontal, ThumbsDown } from "lucide-react";
 import { memo } from "react";
 import { Cover } from "@/components/ui/Cover";
@@ -33,7 +34,7 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
   return (
     <div
       className={cn(
-        "group flex items-center gap-3 rounded-lg px-4 py-2 transition-colors active:bg-white/[0.04] md:hover:bg-white/[0.03]",
+        "group flex items-center gap-3 rounded-lg px-4 py-2 transition-colors active:bg-fg/[0.04] md:hover:bg-fg/[0.03]",
         (dimmed || reaction === -1) && "opacity-50",
       )}
     >
@@ -42,7 +43,7 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
         {...copyPress}
         onClick={onPlay}
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
-        aria-label={`Воспроизвести ${track.title}`}
+        aria-label={tx("Воспроизвести {title}", { title: track.title })}
       >
         {typeof index === "number" && (
           <span className="w-5 shrink-0 text-center text-xs tabular-nums text-subtle">{index + 1}</span>
@@ -60,9 +61,9 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
             {track.title}
           </div>
           <div className="mt-0.5 flex items-center gap-1 truncate text-[13px] text-muted">
-            {downloaded && <ArrowDownCircle className="h-3.5 w-3.5 shrink-0 fill-fg/90 text-bg" aria-label="Скачано" />}
-            {dl && dl.state !== "error" && <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-label="Скачивается" />}
-            {reaction === -1 && <ThumbsDown className="h-3 w-3 shrink-0" aria-label="Не нравится" />}
+            {downloaded && <ArrowDownCircle className="h-3.5 w-3.5 shrink-0 fill-fg/90 text-bg" aria-label={tx("Скачано")} />}
+            {dl && dl.state !== "error" && <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-label={tx("Скачивается")} />}
+            {reaction === -1 && <ThumbsDown className="h-3 w-3 shrink-0" aria-label={tx("Не нравится")} />}
             <span className="truncate">{track.artist}
             {track.album ? <span className="text-subtle"> · {track.album}</span> : null}</span>
           </div>
@@ -75,8 +76,8 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
       <button
         type="button"
         onClick={() => openActions(track)}
-        className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:text-fg active:bg-white/10"
-        aria-label="Действия"
+        className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:text-fg active:bg-fg/10"
+        aria-label={tx("Действия")}
       >
         <MoreHorizontal className="h-5 w-5" />
       </button>

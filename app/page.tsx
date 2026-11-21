@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { ChevronDown, Download, Loader2, Play, RefreshCw, Settings, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,10 +23,10 @@ const FIRST_TRACKS = 3;
 
 function greeting(): string {
   const h = new Date().getHours();
-  if (h < 5) return "Доброй ночи";
-  if (h < 12) return "Доброе утро";
-  if (h < 18) return "Добрый день";
-  return "Добрый вечер";
+  if (h < 5) return tx("Доброй ночи");
+  if (h < 12) return tx("Доброе утро");
+  if (h < 18) return tx("Добрый день");
+  return tx("Добрый вечер");
 }
 
 function shuffleStable<T>(items: T[], salt: string): T[] {
@@ -245,22 +246,22 @@ export default function HomePage() {
       <header className="flex items-end justify-between px-4 pt-6 pb-1">
         <div>
           <div className="text-[13px] text-subtle">{greeting()}</div>
-          <h1 className="text-[28px] font-bold leading-tight tracking-tight">Главная</h1>
+          <h1 className="text-[28px] font-bold leading-tight tracking-tight">{tx("Главная")}</h1>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={build}
             disabled={busy}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-white/10 disabled:opacity-60"
-            aria-label="Обновить подборку"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-fg/10 disabled:opacity-60"
+            aria-label={tx("Обновить подборку")}
           >
             <RefreshCw className={`h-[17px] w-[17px] ${busy ? "animate-spin" : ""}`} />
           </button>
           <Link
             href="/settings"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-white/10"
-            aria-label="Настройки"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-fg/10"
+            aria-label={tx("Настройки")}
           >
             <Settings className="h-[18px] w-[18px]" />
           </Link>
@@ -270,23 +271,23 @@ export default function HomePage() {
       {!hasSeedsPossible && (
         <div className="mx-4 mt-5 rounded-2xl border border-line bg-card p-5">
           <Sparkles className="h-6 w-6 text-muted" />
-          <h2 className="mt-3 text-[17px] font-semibold">Настроим рекомендации</h2>
-          <p className="mt-1 text-[14px] text-muted">Выберите любимых артистов или лайкните пару треков — главная наполнится миксами.</p>
+          <h2 className="mt-3 text-[17px] font-semibold">{tx("Настроим рекомендации")}</h2>
+          <p className="mt-1 text-[14px] text-muted">{tx("Выберите любимых артистов или лайкните пару треков — главная наполнится миксами.")}</p>
           <Link href="/onboarding" className="mt-4 inline-flex h-10 items-center rounded-xl bg-fg px-4 text-[14px] font-semibold text-bg">
-            Выбрать артистов
+            {tx("Выбрать артистов")}
           </Link>
         </div>
       )}
 
       {hasSeedsPossible && !busy && pools.length === 0 && (
         <div className="mx-4 mt-5 rounded-xl border border-line bg-card p-4 text-[13.5px]">
-          <p className="font-medium">Не удалось загрузить рекомендации</p>
+          <p className="font-medium">{tx("Не удалось загрузить рекомендации")}</p>
           <div className="mt-2 flex gap-4">
             <button type="button" onClick={build} className="text-fg underline underline-offset-4">
-              Повторить
+              {tx("Повторить")}
             </button>
             <Link href="/library/downloads" className="inline-flex items-center gap-1.5 text-muted underline underline-offset-4">
-              <Download className="h-3.5 w-3.5" /> Скачанное
+              <Download className="h-3.5 w-3.5" />{tx(" Скачанное")}
             </Link>
           </div>
         </div>
@@ -294,17 +295,17 @@ export default function HomePage() {
 
       {/* Mixes */}
       {!show("mixes") ? null : pools.length > 0 ? (
-        <Shelf title="Ваши миксы">
+        <Shelf title={tx("Ваши миксы")}>
           <MixCard
-            title="Мой микс"
-            subtitle="Всё, что вам нравится, и немного нового"
+            title={tx("Мой микс")}
+            subtitle={tx("Всё, что вам нравится, и немного нового")}
             covers={myMix.slice(0, 4).map((t) => t.cover)}
             onPlay={() => startMix(myMix)}
           />
           {discover.length >= 8 && (
             <MixCard
-              title="Открытия"
-              subtitle="Новые для вас артисты"
+              title={tx("Открытия")}
+              subtitle={tx("Новые для вас артисты")}
               covers={discover.slice(0, 4).map((t) => t.cover)}
               onPlay={() => startMix(discover)}
             />
@@ -313,7 +314,7 @@ export default function HomePage() {
             <MixCard
               key={pool.seedId}
               title={pool.seedName}
-              subtitle={`Микс: ${pool.seedName} и похожие`}
+              subtitle={tx("Микс: {name} и похожие", { name: pool.seedName })}
               covers={[pool.cover]}
               onPlay={() => startMix(list)}
             />
@@ -328,8 +329,8 @@ export default function HomePage() {
         <section className="mt-7">
           <div className="mb-1 flex items-end justify-between px-4">
             <div>
-              <div className="text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">Подобрано для вас</div>
-              <h2 className="text-[19px] font-bold tracking-tight">Быстрый выбор</h2>
+              <div className="text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">{tx("Подобрано для вас")}</div>
+              <h2 className="text-[19px] font-bold tracking-tight">{tx("Быстрый выбор")}</h2>
             </div>
             {quickPicks.length > 0 && (
               <button
@@ -337,13 +338,15 @@ export default function HomePage() {
                 onClick={() => startMix(quickPicks)}
                 className="flex h-8 items-center gap-1.5 rounded-full border border-line bg-card px-3 text-[13px] font-medium"
               >
-                <Play className="h-3.5 w-3.5 fill-current" /> Слушать
+                <Play className="h-3.5 w-3.5 fill-current" />{tx(" Слушать")}
               </button>
             )}
           </div>
-          {quickPicks.slice(0, visible).map((t, i) => (
-            <TrackRow key={t.id} track={t} onPlay={() => startMix(quickPicks, i)} />
-          ))}
+          <div className="lg:grid lg:grid-cols-2 lg:gap-x-4">
+            {quickPicks.slice(0, visible).map((t, i) => (
+              <TrackRow key={t.id} track={t} onPlay={() => startMix(quickPicks, i)} />
+            ))}
+          </div>
           {quickPicks.length === 0 && busy && (
             <>
               <TrackRowSkeleton />
@@ -352,18 +355,18 @@ export default function HomePage() {
             </>
           )}
           {(visible < quickPicks.length || canLoadMore) && quickPicks.length > 0 && (
-            <div className="px-4 pt-2">
+            <div className="px-4 pt-2 lg:max-w-sm">
               <button
                 type="button"
                 onClick={showMore}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-line bg-card text-[14px] font-medium text-fg/90 active:bg-white/10"
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-line bg-card text-[14px] font-medium text-fg/90 active:bg-fg/10"
               >
                 {busy && visible >= quickPicks.length ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <ChevronDown className="h-4 w-4" />
                 )}
-                Показать ещё
+                {tx("Показать ещё")}
               </button>
             </div>
           )}
@@ -371,7 +374,7 @@ export default function HomePage() {
       )}
 
       {show("because") && trackRows.map(({ pool, list }) => (
-        <Shelf key={pool.seedId} subtitle="Потому что вам понравилось" title={pool.seedName || "этот трек"}>
+        <Shelf key={pool.seedId} subtitle={tx("Потому что вам понравилось")} title={pool.seedName || tx("этот трек")}>
           {list.map((t, i) => (
             <TrackCard key={t.id} track={t} onPlay={() => startMix(list, i)} />
           ))}
@@ -379,7 +382,7 @@ export default function HomePage() {
       ))}
 
       {show("artists") && followed.length > 0 && (
-        <Shelf title="Ваши артисты" href="/onboarding">
+        <Shelf title={tx("Ваши артисты")} href="/onboarding">
           {followed.map((a) => (
             <ArtistCircle key={a.key} artist={{ id: a.id!, name: a.name, thumbnail: a.thumbnail ?? "" }} width={104} />
           ))}
@@ -387,7 +390,7 @@ export default function HomePage() {
       )}
 
       {show("recent") && recent.length > 0 && (
-        <Shelf title="Недавно слушали">
+        <Shelf title={tx("Недавно слушали")}>
           {recent.map((t, i) => (
             <TrackCard key={t.id} track={t} onPlay={() => startMix(recent, i)} width={128} />
           ))}
@@ -395,7 +398,7 @@ export default function HomePage() {
       )}
 
       {show("liked") && liked.length > 0 && (
-        <Shelf title="Любимые треки" href="/library/liked">
+        <Shelf title={tx("Любимые треки")} href="/library/liked">
           {liked.slice(0, 15).map((t, i) => (
             <TrackCard key={t.id} track={t} onPlay={() => startMix(liked, i)} width={128} />
           ))}
@@ -411,7 +414,7 @@ export default function HomePage() {
             className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-line bg-card text-[14px] font-medium disabled:opacity-60"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Ещё подборки
+            {tx("Ещё подборки")}
           </button>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { tx } from "@/lib/i18n";
 export function TrackRowSkeleton() {
   return (
     <div className="flex items-center gap-3 px-4 py-2">
@@ -13,7 +14,7 @@ export function TrackRowSkeleton() {
 
 export function TrackListSkeleton({ count = 8 }: { count?: number }) {
   return (
-    <div aria-busy="true" aria-label="Загрузка">
+    <div aria-busy="true" aria-label={tx("Загрузка")}>
       {Array.from({ length: count }, (_, i) => (
         <TrackRowSkeleton key={i} />
       ))}

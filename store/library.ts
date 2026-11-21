@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { artistKey, type FollowedArtist, type PlayEvent, type Playlist, type Track } from "@/lib/types";
 
-export const MAX_PLAYS = 1500;
+export const MAX_PLAYS = 5000;
 
 export interface LibraryData {
   /** Track metadata cache — everything else references tracks by id. */
@@ -19,6 +19,10 @@ export interface LibraryData {
   onboarded: boolean;
   /** Home sections the user switched off (see HOME_SECTIONS). Synced. */
   hiddenSections: string[];
+  /** Visual theme id (see lib/themes.ts). Synced. */
+  theme: string;
+  /** UI language; "" = follow the device. Synced. */
+  lang: string;
   /** Last queue snapshot for session restore. */
   lastQueue: { tracks: Track[]; index: number; radio: boolean };
 }
@@ -36,6 +40,8 @@ interface LibraryState extends LibraryData {
   unfollowArtist: (key: string) => void;
   setOnboarded: (v: boolean) => void;
   toggleSection: (id: string) => void;
+  setTheme: (id: string) => void;
+  setLang: (lang: string) => void;
   recordPlay: (t: Track, listened: number, completed: boolean) => void;
   clearHistory: () => void;
   pushSearch: (q: string) => void;
@@ -58,6 +64,8 @@ export const EMPTY_LIBRARY: LibraryData = {
   searchHistory: [],
   onboarded: false,
   hiddenSections: [],
+  theme: "graphite",
+  lang: "",
   lastQueue: { tracks: [], index: 0, radio: true },
 };
 
@@ -171,6 +179,9 @@ export const useLibrary = create<LibraryState>()(
 
       setOnboarded: (v) => set({ onboarded: v }),
 
+      setTheme: (id) => set({ theme: id }),
+      setLang: (lang) => set({ lang }),
+
       toggleSection: (id) =>
         set((s) => ({
           hiddenSections: s.hiddenSections.includes(id) ? s.hiddenSections.filter((x) => x !== id) : [...s.hiddenSections, id],
@@ -219,6 +230,8 @@ export const useLibrary = create<LibraryState>()(
         searchHistory: s.searchHistory,
         onboarded: s.onboarded,
         hiddenSections: s.hiddenSections,
+        theme: s.theme,
+        lang: s.lang,
         lastQueue: s.lastQueue,
       }),
       migrate: (persisted, version) => {

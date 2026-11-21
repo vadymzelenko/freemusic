@@ -6,7 +6,7 @@ export function Equalizer({ playing, className }: { playing: boolean; className?
       {[0, 0.2, 0.4].map((d) => (
         <span
           key={d}
-          className={cn("eq-bar block h-full w-[3px] rounded-full bg-fg", !playing && "[animation-play-state:paused]")}
+          className={cn("eq-bar block h-full w-[3px] rounded-full bg-white", !playing && "[animation-play-state:paused]")}
           style={{ animationDelay: `${d}s` }}
         />
       ))}

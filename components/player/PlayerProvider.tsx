@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import {
   createContext,
   useCallback,
@@ -15,6 +16,7 @@ import { apiUrl, prepareUrl, streamUrl } from "@/lib/format";
 import type { Track } from "@/lib/types";
 import { initCloudSync } from "@/lib/cloud-sync";
 import { offlineUrl, reconcileDownloads } from "@/lib/downloads";
+import { bufferTrack, initAudioBuffer, isBuffered, markUsed } from "@/lib/audio-cache";
 import { buildProfile, filterRadio } from "@/lib/recommend";
 import { isDownloaded } from "@/store/downloads";
 import { initLibrarySync, useHydrated, useLibrary } from "@/store/library";
@@ -80,6 +82,8 @@ interface PlayerContextValue {
   prev: () => void;
   seek: (seconds: number) => void;
   seekBy: (delta: number) => void;
+  volume: number;
+  setVolume: (v: number) => void;
   playNext: (track: Track) => void;
   addToQueue: (track: Track) => void;
   removeFromQueue: (index: number) => void;
@@ -275,6 +279,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         );
         if (!fresh.length) return false;
         commitQueue([...queueRef.current, ...fresh]);
+        scheduleBuffering(indexRef.current);
         for (let k = 1; k <= PREPARE_AHEAD; k++) {
           const up = queueRef.current[indexRef.current + k];
           if (up && !isDownloaded(up.id)) setTimeout(() => void prepare(up.id), (k - 1) * 250);
@@ -289,6 +294,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [commitQueue],
   );
+
+  /* ---------------- short-term audio buffer ---------------- */
+
+  const bufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Keeps the previous tracks + the next one in the local buffer. */
+  const scheduleBuffering = useCallback((i: number) => {
+    if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
+    bufferTimerRef.current = setTimeout(() => {
+      const q = queueRef.current;
+      const cur = q[i];
+      const next = q[i + 1];
+      const keep = [q[i - 2]?.id, q[i - 1]?.id, cur?.id, next?.id].filter((x): x is string => !!x);
+      // next first (instant skip), then the current one so "previous" later is instant too
+      void (async () => {
+        if (next && !isDownloaded(next.id)) await bufferTrack(next.id, keep);
+        if (cur && !isDownloaded(cur.id) && indexRef.current === i) await bufferTrack(cur.id, keep);
+      })();
+    }, 4000);
+  }, []);
 
   /* ---------------- core: synchronous track switch ---------------- */
 
@@ -309,7 +334,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       retriedRef.current.delete(t.id);
       loadedIdRef.current = t.id;
       // Downloaded tracks come from Cache Storage via the service worker; the check is synchronous.
-      a.src = isDownloaded(t.id) ? offlineUrl(t.id) : streamUrl(t.id);
+      // Buffered = prefetched next track or one played a moment ago — served locally, instant start.
+      const local = isDownloaded(t.id) || isBuffered(t.id);
+      a.src = local ? offlineUrl(t.id) : streamUrl(t.id);
+      markUsed(t.id);
       if (autoplay) {
         const p = a.play();
         if (p) p.catch(() => setIsPlaying(false));
@@ -323,13 +351,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (up && !isDownloaded(up.id)) setTimeout(() => void prepare(up.id), (k - 1) * 250);
       }
       // Learn the real duration of the current one too (after its stream request is in flight).
-      if (!isDownloaded(t.id)) setTimeout(() => void prepare(t.id), 1500);
+      if (!local) setTimeout(() => void prepare(t.id), 1500);
+      scheduleBuffering(i);
       if (prevTrack && !playRecordedRef.current) recordPlay(prevTrack, prevListened, prevCompleted);
       playRecordedRef.current = false;
       fakeEndedRef.current = false;
       void refillRadio();
     },
-    [commitIndex, progressStore, recordPlay, refillRadio, updateMediaMetadata],
+    [commitIndex, progressStore, recordPlay, refillRadio, scheduleBuffering, updateMediaMetadata],
   );
 
   /* ---------------- public actions ---------------- */
@@ -403,6 +432,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [progressStore, updatePositionState],
   );
+
+  const [volume, setVolumeState] = useState(1);
+  const setVolume = useCallback((v: number) => {
+    const x = Math.min(1, Math.max(0, v));
+    if (audioRef.current) audioRef.current.volume = x;
+    setVolumeState(x);
+    try {
+      localStorage.setItem("freemusic-volume", String(x));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      const v = parseFloat(localStorage.getItem("freemusic-volume") ?? "1");
+      if (Number.isFinite(v)) setVolume(v);
+    } catch {
+      /* ignore */
+    }
+  }, [setVolume]);
 
   const seekBy = useCallback((delta: number) => {
     const a = audioRef.current;
@@ -572,10 +621,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         failuresRef.current = 0;
         a.pause();
         setIsPlaying(false);
-        setError("Не удалось загрузить аудио");
+        setError(tx("Не удалось загрузить аудио"));
         fetch(prepareUrl(t.id))
           .then((r) => r.json() as Promise<{ error?: string }>)
-          .then((d) => d.error && setError(`Не удалось загрузить аудио: ${d.error}`))
+          .then((d) => d.error && setError(tx("Не удалось загрузить аудио: {e}", { e: d.error! })))
           .catch(() => {});
         return;
       }
@@ -627,6 +676,33 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     applyMediaHandlers(actionsRef);
   }, []);
 
+  // Desktop keyboard shortcuts: Space play/pause, ←/→ ±5s, Shift+←/→ prev/next, M mute.
+  const keysRef = useRef({ toggle: () => {}, seekBy: (_: number) => {}, next: () => {}, prev: () => {}, mute: () => {} });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = keysRef.current;
+      if (e.code === "Space") {
+        e.preventDefault();
+        k.toggle();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (e.shiftKey) k.next();
+        else k.seekBy(5);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (e.shiftKey) k.prev();
+        else k.seekBy(-5);
+      } else if (e.key === "m" || e.key === "M" || e.key === "ь" || e.key === "Ь") {
+        k.mute();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   /* ---------------- persistence ---------------- */
 
   useEffect(() => {
@@ -634,6 +710,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     fetch(apiUrl("/api/warm")).catch(() => {});
     const stopLocal = initLibrarySync();
     void reconcileDownloads();
+    void initAudioBuffer();
     const stopCloud = initCloudSync();
     return () => {
       stopLocal();
@@ -668,6 +745,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(id);
   }, [queue, index, radio, saveQueue]);
 
+  keysRef.current = {
+    toggle,
+    seekBy,
+    next,
+    prev,
+    mute: () => setVolume(audioRef.current && audioRef.current.volume > 0 ? 0 : 1),
+  };
+
   /* ---------------- value ---------------- */
 
   const current = queue[index] ?? null;
@@ -694,6 +779,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       prev,
       seek,
       seekBy,
+      volume,
+      setVolume,
       playNext,
       addToQueue,
       removeFromQueue,
@@ -721,6 +808,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       prev,
       seek,
       seekBy,
+      volume,
+      setVolume,
       playNext,
       addToQueue,
       removeFromQueue,

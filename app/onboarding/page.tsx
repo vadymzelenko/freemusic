@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Search as SearchIcon, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -45,7 +46,7 @@ function ArtistTile({ artist, selected, onToggle }: { artist: ArtistSummary; sel
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+    <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
       {Array.from({ length: 9 }, (_, i) => (
         <div key={i}>
           <div className="skeleton mx-auto aspect-square w-full max-w-[112px] rounded-full" />
@@ -115,13 +116,13 @@ export default function OnboardingPage() {
       <header className="px-4 pt-8 pb-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-[28px] font-bold leading-tight tracking-tight">Что вы слушаете?</h1>
+            <h1 className="text-[28px] font-bold leading-tight tracking-tight">{tx("Что вы слушаете?")}</h1>
             <p className="mt-1 text-[14px] text-muted">
-              Выберите хотя бы {MIN_PICKS} артистов — по ним мы соберём рекомендации. Поменять можно в настройках.
+              {tx("Выберите хотя бы {n} артистов — по ним мы соберём рекомендации. Поменять можно в настройках.", { n: MIN_PICKS })}
             </p>
           </div>
           <button type="button" onClick={finish} className="shrink-0 pt-1 text-[14px] text-subtle hover:text-fg">
-            Пропустить
+            {tx("Пропустить")}
           </button>
         </div>
       </header>
@@ -132,11 +133,11 @@ export default function OnboardingPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Найти артиста"
+            placeholder={tx("Найти артиста")}
             className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-subtle"
           />
           {query && (
-            <button type="button" onClick={() => setQuery("")} className="text-muted" aria-label="Очистить">
+            <button type="button" onClick={() => setQuery("")} className="text-muted" aria-label={tx("Очистить")}>
               <X className="h-4 w-4" />
             </button>
           )}
@@ -162,11 +163,11 @@ export default function OnboardingPage() {
       <div className="px-4">
         {q ? (
           found.data ? (
-            <div className="grid grid-cols-3 gap-x-3 gap-y-5 pt-2 sm:grid-cols-4">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-5 pt-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
               {found.data.artists.slice(0, 12).map((a) => (
                 <ArtistTile key={a.id} artist={a} selected={selected.has(artistKey(a.name))} onToggle={() => toggle(a)} />
               ))}
-              {!found.data.artists.length && <p className="col-span-full py-8 text-center text-sm text-subtle">Никого не нашли</p>}
+              {!found.data.artists.length && <p className="col-span-full py-8 text-center text-sm text-subtle">{tx("Никого не нашли")}</p>}
             </div>
           ) : (
             <SkeletonGrid />
@@ -175,8 +176,8 @@ export default function OnboardingPage() {
           <>
             {relatedVisible.length > 0 && (
               <section className="mb-8">
-                <h2 className="mb-3 text-[17px] font-semibold">Вам может понравиться</h2>
-                <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+                <h2 className="mb-3 text-[17px] font-semibold">{tx("Вам может понравиться")}</h2>
+                <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
                   {relatedVisible.slice(0, 9).map((a) => (
                     <ArtistTile key={a.id} artist={a} selected={false} onToggle={() => toggle(a)} />
                   ))}
@@ -184,13 +185,13 @@ export default function OnboardingPage() {
               </section>
             )}
             {popular.error && !popular.data && (
-              <p className="py-8 text-center text-sm text-subtle">Не удалось загрузить артистов: {popular.error}</p>
+              <p className="py-8 text-center text-sm text-subtle">{tx("Не удалось загрузить артистов: ")}{popular.error}</p>
             )}
             {!popular.data && !popular.error && <SkeletonGrid />}
             {popular.data?.genres.map((g) => (
               <section key={g.genre} className="mb-8">
-                <h2 className="mb-3 text-[17px] font-semibold">{g.genre}</h2>
-                <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+                <h2 className="mb-3 text-[17px] font-semibold">{tx(g.genre)}</h2>
+                <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
                   {g.artists.map((a) => (
                     <ArtistTile key={a.id} artist={a} selected={selected.has(artistKey(a.name))} onToggle={() => toggle(a)} />
                   ))}
@@ -202,8 +203,8 @@ export default function OnboardingPage() {
       </div>
 
       <div
-        className="fixed inset-x-0 z-[45] px-4"
-        style={{ bottom: "calc(var(--tabbar-h) + var(--safe-bottom) + 10px)" }}
+        className="fixed right-0 z-[45] px-4 md:!bottom-[calc(var(--mini-h)+16px)]"
+        style={{ left: "var(--sidebar-w)", bottom: "calc(var(--tabbar-h) + var(--safe-bottom) + 10px)" }}
       >
         <button
           type="button"
@@ -211,7 +212,7 @@ export default function OnboardingPage() {
           disabled={picks < MIN_PICKS}
           className="mx-auto flex h-12 w-full max-w-md items-center justify-center rounded-xl bg-fg text-[15px] font-semibold text-bg shadow-2xl transition-opacity disabled:opacity-40"
         >
-          {picks < MIN_PICKS ? `Выберите ещё ${MIN_PICKS - picks}` : `Готово · ${picks}`}
+          {picks < MIN_PICKS ? tx("Выберите ещё {n}", { n: MIN_PICKS - picks }) : tx("Готово · {n}", { n: picks })}
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { Play, Shuffle } from "lucide-react";
 import { tracksWord } from "@/lib/plural";
 import { DownloadAllButton } from "@/components/DownloadAllButton";
@@ -34,16 +35,16 @@ export default function AlbumScreen() {
         <BackButton />
       </div>
       {error && !data ? (
-        <p className="px-4 pt-8 text-center text-sm text-subtle">Не удалось загрузить альбом: {error}</p>
+        <p className="px-4 pt-8 text-center text-sm text-subtle">{tx("Не удалось загрузить альбом: ")}{error}</p>
       ) : (
         <>
-          <div className="flex flex-col items-center px-4 pt-3 pb-5 text-center">
+          <div className="flex flex-col items-center px-4 pt-3 pb-5 text-center md:grid md:grid-cols-[auto_1fr] md:items-end md:justify-items-start md:gap-x-8 md:px-0 md:pt-6 md:pb-8 md:text-left md:[&>*:first-child]:row-span-6 md:[&>*:not(:first-child)]:col-start-2">
             {data ? (
-              <Cover src={data.cover} alt="" className="h-52 w-52 shadow-2xl" rounded="rounded-2xl" priority />
+              <Cover src={data.cover} alt="" className="h-52 w-52 shadow-2xl lg:h-60 lg:w-60" rounded="rounded-2xl" priority />
             ) : (
               <div className="skeleton h-52 w-52 rounded-2xl" />
             )}
-            <h1 className="mt-4 text-[22px] font-bold leading-tight tracking-tight">
+            <h1 className="mt-4 text-[22px] md:mt-0 md:text-[34px] md:leading-tight font-bold leading-tight tracking-tight">
               {data?.title ?? <span className="skeleton inline-block h-6 w-48 rounded" />}
             </h1>
             {data &&
@@ -56,26 +57,26 @@ export default function AlbumScreen() {
               ))}
             {data && (
               <p className="mt-0.5 text-[12.5px] text-subtle">
-                {[data.kind === "single" ? "Сингл" : data.kind === "ep" ? "EP" : "Альбом", data.year, `${tracksWord(tracks.length)}`, total ? formatTime(total) : null]
+                {[data.kind === "single" ? tx("Сингл") : data.kind === "ep" ? "EP" : tx("Альбом"), data.year, `${tracksWord(tracks.length)}`, total ? formatTime(total) : null]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
             )}
-            <div className="mt-4 flex w-full max-w-sm gap-2">
+            <div className="mt-4 flex w-full max-w-sm gap-2 md:max-w-md">
               <button
                 type="button"
                 disabled={!tracks.length}
                 onClick={() => play(0)}
                 className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-fg text-[15px] font-semibold text-bg disabled:opacity-30"
               >
-                <Play className="h-4 w-4 fill-current" /> Слушать
+                <Play className="h-4 w-4 fill-current" />{tx(" Слушать")}
               </button>
               <button
                 type="button"
                 disabled={!tracks.length}
                 onClick={() => play(0, true)}
                 className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-card disabled:opacity-30"
-                aria-label="Перемешать"
+                aria-label={tx("Перемешать")}
               >
                 <Shuffle className="h-4 w-4" />
               </button>
