@@ -1,4 +1,4 @@
-import { clientOrder, getYT, resolveWithClient } from "@/lib/yt";
+import { clientOrder, getYT, hasVisitorIdInCookie, resolveWithClient } from "@/lib/yt";
 import { VIDEO_ID_RE } from "@/lib/format";
 import { errorMessage, json } from "@/lib/http";
 
@@ -42,6 +42,7 @@ export async function GET(req: Request) {
     {
       id,
       has_cookie: Boolean(process.env.YT_COOKIE),
+      cookie_has_visitor_id: hasVisitorIdInCookie(),
       region: process.env.VERCEL_REGION ?? null,
       session,
       results,
