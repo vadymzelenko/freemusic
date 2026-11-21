@@ -1,0 +1,65 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { apiUrl } from "@/lib/format";
+
+/* Tiny SWR-like fetch hook: in-memory cache + request de-duplication. */
+
+const cache = new Map<string, { data: unknown; at: number }>();
+const inflight = new Map<string, Promise<unknown>>();
+const TTL = 10 * 60 * 1000;
+
+export async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const hit = cache.get(path);
+  if (hit && Date.now() - hit.at < TTL) return hit.data as T;
+  let p = inflight.get(path) as Promise<T> | undefined;
+  if (!p) {
+    p = fetch(apiUrl(path))
+      .then(async (r) => {
+        const data = (await r.json()) as T & { error?: string };
+        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+        cache.set(path, { data, at: Date.now() });
+        return data as T;
+      })
+      .finally(() => inflight.delete(path));
+    inflight.set(path, p);
+  }
+  if (!signal) return p;
+  return new Promise<T>((resolve, reject) => {
+    signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    p!.then(resolve, reject);
+  });
+}
+
+export function peekJSON<T>(path: string): T | undefined {
+  return cache.get(path)?.data as T | undefined;
+}
+
+export function useApi<T>(path: string | null): { data: T | undefined; error: string | null; loading: boolean } {
+  const [state, setState] = useState<{ path: string | null; data: T | undefined; error: string | null }>(() => ({
+    path,
+    data: path ? peekJSON<T>(path) : undefined,
+    error: null,
+  }));
+
+  useEffect(() => {
+    if (!path) return;
+    const cached = peekJSON<T>(path);
+    setState({ path, data: cached, error: null });
+    const ctrl = new AbortController();
+    getJSON<T>(path, ctrl.signal)
+      .then((data) => setState({ path, data, error: null }))
+      .catch((e: unknown) => {
+        if (ctrl.signal.aborted) return;
+        setState({ path, data: cached, error: e instanceof Error ? e.message : String(e) });
+      });
+    return () => ctrl.abort();
+  }, [path]);
+
+  const current = state.path === path;
+  return {
+    data: current ? state.data : path ? peekJSON<T>(path) : undefined,
+    error: current ? state.error : null,
+    loading: !!path && (!current || (state.data === undefined && state.error === null)),
+  };
+}

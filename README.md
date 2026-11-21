@@ -25,7 +25,7 @@ npm run dev        # http://localhost:3000
 ### Supabase + вход через Google
 
 1. Создайте проект на [supabase.com](https://supabase.com).
-2. **SQL Editor** → вставьте содержимое `supabase/schema.sql` → **Run**. Создастся таблица `user_library` с RLS: каждый пользователь видит только свою строку.
+2. **SQL Editor** → вставьте содержимое `supabase/schema.sql` → **Run**. Создадутся таблицы `tracks`, `likes`, `playlists`, `playlist_items`, `user_artists`, `plays`, `user_state` с RLS: каждый видит только свои строки. Файл можно запускать повторно.
 3. **Google Cloud Console** → APIs & Services → Credentials → **Create OAuth client ID** (Web application).
    - Authorized redirect URI: `https://<ваш-проект>.supabase.co/auth/v1/callback`
 4. Supabase → **Authentication → Sign In / Providers → Google** → включите, вставьте Client ID и Client Secret.
@@ -42,22 +42,43 @@ npm run dev        # http://localhost:3000
 2. DevTools (F12) → вкладка **Network** → обновите страницу → кликните любой запрос к `music.youtube.com` → **Request Headers** → скопируйте значение заголовка `cookie` целиком.
 3. Вставьте эту строку в `YT_COOKIE` на Vercel и сделайте Redeploy. Cookie живёт несколько месяцев; никому её не показывайте — это доступ к аккаунту.
 
+## Возможности
+
+- **Главная**: «Мой микс», «Открытия», миксы по вашим артистам, «Быстрый выбор», «Потому что вам понравилось…», недавнее и любимое.
+- **Онбординг**: выбор любимых артистов по жанрам, сразу подсказываются похожие. Изменить можно в «Настройках».
+- **Поиск**: подсказки при вводе, вкладки «Всё / Треки / Альбомы / Артисты», мгновенный поиск по своей медиатеке.
+- **Страницы артиста и альбома**, «В мои артисты», радио артиста.
+- **Лайки и дизлайки**: дизлайк навсегда убирает трек из рекомендаций и понижает артиста.
+- **Скачивание** треков, альбомов и плейлистов для офлайна (Service Worker + Cache Storage, с перемоткой).
+
+## Как работают рекомендации
+
+YouTube Music поставляет кандидатов: радио по треку (`getUpNext` automix), топ-треки артистов, похожих артистов.
+Поверх этого `lib/recommend.ts` строит ваш вкус по артистам: выбранные артисты +4, лайк +2, дизлайк −3,
+прослушивание до конца +0.4, пропуск в первые 30 с −0.8 (с затуханием за ~30 дней). Затем кандидаты
+пересортировываются, дизлайкнутое и нелюбимые артисты выкидываются, недавно игранное понижается,
+подряд не идёт больше одного трека одного артиста. Подбор для радио только фильтрует, порядок YouTube сохраняется.
+
 ## Архитектура
 
 ```
 app/
-  api/search   GET ?q=   — yt.music.search (только песни), чистые метаданные, обложки 544×544
-  api/related  GET ?id=  — yt.music.getUpNext(id, automix) → бесконечное радио
-  api/prepare  GET ?id=  — резолвит прямую googlevideo-ссылку (m4a/AAC) и кладёт в Map с TTL 3 ч
-  api/stream   GET ?id=  — прокси с поддержкой Range → 206 Partial Content
-  page.tsx               — Поиск
-  library/               — Любимые + плейлисты
-  queue/                 — Очередь
-components/player/
-  PlayerProvider.tsx     — единственный <audio>, очередь, Media Session, прогрев
-  MiniPlayer / FullPlayer / Scrubber
-lib/yt.ts                — синглтон Innertube, JS-evaluator для дешифровки, кэши
-store/library.ts         — zustand + localStorage (лайки, плейлисты, история поиска, последняя очередь)
+  page.tsx               — Главная (миксы)
+  search/ onboarding/ settings/ artist/[id] album/[id] library/ queue/
+  api/search             GET ?q=&type=all|song|album|artist
+  api/suggest            GET ?q=      — подсказки поиска
+  api/artist             GET ?id=     — артист: треки, альбомы, синглы, похожие
+  api/album              GET ?id=     — альбом с треками
+  api/mix                GET ?a=artistIds&t=trackIds — кандидаты для главной
+  api/artists/popular    GET          — артисты для онбординга
+  api/related            GET ?id=     — радио
+  api/prepare /api/stream             — прогрев и прокси аудио
+  api/debug              GET ?id=     — диагностика доступа к YouTube
+public/sw.js             — офлайн-аудио (Range/206), кэш оболочки приложения
+lib/recommend.ts         — вкус пользователя и ранжирование
+lib/cloud-sync.ts        — синхронизация с Supabase по таблицам
+lib/downloads.ts         — загрузки (3 параллельно, с прогрессом)
+store/library.ts         — локальная медиатека (zustand + localStorage)
 ```
 
 ### Фоновое воспроизведение на iOS
@@ -76,7 +97,8 @@ store/library.ts         — zustand + localStorage (лайки, плейлис�
 ### Хранилище
 
 - Всегда: `localStorage` (zustand persist, `store/library.ts`) + синхронизация между вкладками — приложение работает и офлайн, и без аккаунта.
-- После входа через Google: копия библиотеки хранится в Supabase (`lib/cloud-sync.ts`, таблица `user_library`, одна JSON-строка на пользователя).
+- После входа через Google: лайки, дизлайки, плейлисты, артисты, история прослушиваний и очередь лежат в таблицах Supabase (`lib/cloud-sync.ts`). Изменения отправляются через 1,5 с, при сворачивании приложения сразу; при возвращении подтягиваются изменения с других устройств.
+- Скачанные треки хранятся только на устройстве (Cache Storage) и не синхронизируются.
 
 ## Ограничения
 

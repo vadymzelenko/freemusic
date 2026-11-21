@@ -1,6 +1,8 @@
 "use client";
 
-import { ChevronRight, Heart, ListMusic, Plus } from "lucide-react";
+import { ChevronRight, Download, Heart, ListMusic, Plus, Settings, UsersRound } from "lucide-react";
+import { tracksWord } from "@/lib/plural";
+import { useDownloads } from "@/store/downloads";
 import Link from "next/link";
 import { useState } from "react";
 import { AccountCard } from "@/components/AccountCard";
@@ -30,6 +32,8 @@ function Mosaic({ covers }: { covers: string[] }) {
 export default function LibraryPage() {
   const hydrated = useHydrated();
   const likedCount = useLibrary((s) => s.likedIds.length);
+  const artistsCount = useLibrary((s) => s.artists.length);
+  const downloadsCount = useDownloads((s) => Object.keys(s.items).length);
   const playlists = useLibrary((s) => s.playlists);
   const tracks = useLibrary((s) => s.tracks);
   const createPlaylist = useLibrary((s) => s.createPlaylist);
@@ -39,6 +43,14 @@ export default function LibraryPage() {
   return (
     <div>
       <PageHeader title="Медиатека">
+        <div className="flex gap-2">
+        <Link
+          href="/settings"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-white/10"
+          aria-label="Настройки"
+        >
+          <Settings className="h-4 w-4" />
+        </Link>
         <button
           type="button"
           onClick={() => setCreating(true)}
@@ -46,6 +58,7 @@ export default function LibraryPage() {
         >
           <Plus className="h-4 w-4" /> Плейлист
         </button>
+        </div>
       </PageHeader>
 
       <AccountCard />
@@ -60,7 +73,35 @@ export default function LibraryPage() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-medium">Любимые треки</div>
-            <div className="text-[13px] text-muted">{hydrated ? `${likedCount} треков` : " "}</div>
+            <div className="text-[13px] text-muted">{hydrated ? `${tracksWord(likedCount)}` : " "}</div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-subtle" />
+        </Link>
+
+        <Link
+          href="/library/downloads"
+          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+        >
+          <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-line bg-gradient-to-br from-zinc-700 to-zinc-900">
+            <Download className="h-6 w-6 text-fg" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-medium">Скачанное</div>
+            <div className="text-[13px] text-muted">{tracksWord(downloadsCount)} · офлайн</div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-subtle" />
+        </Link>
+
+        <Link
+          href="/onboarding"
+          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+        >
+          <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-line bg-card">
+            <UsersRound className="h-6 w-6 text-muted" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-medium">Мои артисты</div>
+            <div className="text-[13px] text-muted">{hydrated ? `${artistsCount} артистов` : "\u00a0"}</div>
           </div>
           <ChevronRight className="h-4 w-4 text-subtle" />
         </Link>
@@ -85,7 +126,7 @@ export default function LibraryPage() {
               <Mosaic covers={p.trackIds.map((id) => tracks[id]?.cover).filter((c): c is string => !!c)} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-medium">{p.name}</div>
-                <div className="text-[13px] text-muted">{p.trackIds.length} треков</div>
+                <div className="text-[13px] text-muted">{tracksWord(p.trackIds.length)}</div>
               </div>
               <ChevronRight className="h-4 w-4 text-subtle" />
             </Link>

@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Pause, Play, SkipForward } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { Cover } from "@/components/ui/Cover";
 import { usePlayer, useProgress } from "./PlayerProvider";
 
@@ -17,10 +18,11 @@ function MiniProgress() {
 
 export function MiniPlayer() {
   const { current, isPlaying, isBuffering, error, toggle, next, setPlayerOpen } = usePlayer();
+  const pathname = usePathname();
 
   return (
     <AnimatePresence>
-      {current && (
+      {current && pathname !== "/onboarding" && (
         <motion.div
           initial={{ y: 24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

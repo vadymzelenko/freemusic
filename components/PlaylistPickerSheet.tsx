@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ListMusic, Plus } from "lucide-react";
+import { tracksWord } from "@/lib/plural";
 import { useState } from "react";
 import { Sheet } from "@/components/ui/Sheet";
 import { useLibrary } from "@/store/library";
@@ -74,7 +75,7 @@ export function PlaylistPickerSheet() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px]">{p.name}</span>
-                    <span className="block text-xs text-subtle">{p.trackIds.length} треков</span>
+                    <span className="block text-xs text-subtle">{tracksWord(p.trackIds.length)}</span>
                   </span>
                   {has && <Check className="h-4 w-4 text-muted" />}
                 </button>
