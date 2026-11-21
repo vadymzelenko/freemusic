@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { ArrowUpLeft, Clock, ListMusic, Search as SearchIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
@@ -80,7 +81,7 @@ export default function SearchPage() {
 
   return (
     <div>
-      <PageHeader title="Поиск" />
+      <PageHeader title={tx("Поиск")} />
       <div className="sticky top-[var(--safe-top)] z-30 bg-bg/85 px-4 pt-1 pb-2 backdrop-blur-xl">
         <form
           role="search"
@@ -103,7 +104,7 @@ export default function SearchPage() {
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
-            placeholder="Треки, альбомы, артисты"
+            placeholder={tx("Треки, альбомы, артисты")}
             className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-subtle"
           />
           {query && (
@@ -114,7 +115,7 @@ export default function SearchPage() {
                 inputRef.current?.focus();
               }}
               className="flex h-6 w-6 items-center justify-center rounded-full bg-fg/10 text-muted"
-              aria-label="Очистить"
+              aria-label={tx("Очистить")}
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -133,7 +134,7 @@ export default function SearchPage() {
                   tab === t.id ? "border-fg bg-fg text-bg" : "border-line bg-card text-muted",
                 )}
               >
-                {t.label}
+                {tx(t.label)}
               </button>
             ))}
           </div>
@@ -162,7 +163,7 @@ export default function SearchPage() {
                   inputRef.current?.focus();
                 }}
                 className="flex h-9 w-9 items-center justify-center text-subtle"
-                aria-label="Дополнить"
+                aria-label={tx("Дополнить")}
               >
                 <ArrowUpLeft className="h-4 w-4" />
               </button>
@@ -180,7 +181,7 @@ export default function SearchPage() {
                   <Cover src={a.thumbnail} alt="" className="h-11 w-11" rounded="rounded-full" />
                   <div className="min-w-0">
                     <div className="truncate text-[15px] font-medium">{a.name}</div>
-                    <div className="text-[12.5px] text-muted">Артист</div>
+                    <div className="text-[12.5px] text-muted">{tx("Артист")}</div>
                   </div>
                 </Link>
               ))}
@@ -193,7 +194,7 @@ export default function SearchPage() {
                   <Cover src={al.cover} alt="" className="h-11 w-11" />
                   <div className="min-w-0">
                     <div className="truncate text-[15px] font-medium">{al.title}</div>
-                    <div className="truncate text-[12.5px] text-muted">Альбом · {al.artist}</div>
+                    <div className="truncate text-[12.5px] text-muted">{tx("Альбом · ")}{al.artist}</div>
                   </div>
                 </Link>
               ))}
@@ -212,16 +213,16 @@ export default function SearchPage() {
         <section className="pt-2 pb-4">
           <div className="flex items-end justify-between px-4 pb-1">
             <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-subtle">
-              {radio ? "Сейчас играет · радио" : "Сейчас играет"}
+              {radio ? tx("Сейчас играет · радио") : tx("Сейчас играет")}
             </h2>
             <Link href="/queue" className="flex items-center gap-1 text-[13px] text-muted hover:text-fg">
-              <ListMusic className="h-3.5 w-3.5" /> Вся очередь
+              <ListMusic className="h-3.5 w-3.5" />{tx(" Вся очередь")}
             </Link>
           </div>
           <TrackRow track={current} onPlay={() => jumpTo(index)} />
           {upcoming.length > 0 && (
             <>
-              <h3 className="px-4 pt-2 text-[12px] text-subtle">Далее</h3>
+              <h3 className="px-4 pt-2 text-[12px] text-subtle">{tx("Далее")}</h3>
               {upcoming.map((t, k) => (
                 <TrackRow key={`${t.id}-${k}`} track={t} onPlay={() => jumpTo(index + 1 + k)} />
               ))}
@@ -235,9 +236,9 @@ export default function SearchPage() {
           {history.length > 0 ? (
             <>
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-subtle">Недавние</h2>
+                <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-subtle">{tx("Недавние")}</h2>
                 <button type="button" onClick={clearHistory} className="text-[13px] text-muted hover:text-fg">
-                  Очистить
+                  {tx("Очистить")}
                 </button>
               </div>
               <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
@@ -260,8 +261,8 @@ export default function SearchPage() {
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-card">
                 <SearchIcon className="h-6 w-6 text-muted" />
               </div>
-              <p className="text-[15px] font-medium">Найдите любимую музыку</p>
-              <p className="mt-1 max-w-xs text-sm text-subtle">Весь каталог YouTube Music: треки, альбомы и артисты.</p>
+              <p className="text-[15px] font-medium">{tx("Найдите любимую музыку")}</p>
+              <p className="mt-1 max-w-xs text-sm text-subtle">{tx("Весь каталог YouTube Music: треки, альбомы и артисты.")}</p>
             </div>
           )}
         </section>
@@ -272,7 +273,7 @@ export default function SearchPage() {
         <div className={results.stale ? "opacity-60 transition-opacity" : "transition-opacity"}>
           {local.length > 0 && tab !== "album" && tab !== "artist" && (
             <section className="pt-2">
-              <h2 className="px-4 pb-1 text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">В медиатеке</h2>
+              <h2 className="px-4 pb-1 text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">{tx("В медиатеке")}</h2>
               {local.map((t) => (
                 <TrackRow key={t.id} track={t} onPlay={() => playSong(t)} />
               ))}
@@ -281,7 +282,7 @@ export default function SearchPage() {
 
           {results.error && (
             <div className="mx-4 mt-4 rounded-xl border border-line bg-card p-4 text-sm">
-              <p className="font-medium">Не удалось выполнить поиск</p>
+              <p className="font-medium">{tx("Не удалось выполнить поиск")}</p>
               <p className="mt-1 break-words text-subtle">{results.error}</p>
             </div>
           )}
@@ -291,7 +292,7 @@ export default function SearchPage() {
           {data && tab === "all" && (
             <>
               {data.artists.length > 0 && (
-                <Shelf title="Артисты">
+                <Shelf title={tx("Артисты")}>
                   {data.artists.slice(0, 10).map((a) => (
                     <ArtistCircle key={a.id} artist={a} width={104} />
                   ))}
@@ -300,9 +301,9 @@ export default function SearchPage() {
               {data.songs.length > 0 && (
                 <section className="mt-6">
                   <div className="flex items-end justify-between px-4 pb-1">
-                    <h2 className="text-[19px] font-bold tracking-tight">Треки</h2>
+                    <h2 className="text-[19px] font-bold tracking-tight">{tx("Треки")}</h2>
                     <button type="button" onClick={() => setTab("song")} className="text-[13px] text-muted hover:text-fg">
-                      Все
+                      {tx("Все")}
                     </button>
                   </div>
                   {data.songs.slice(0, 6).map((t) => (
@@ -311,14 +312,14 @@ export default function SearchPage() {
                 </section>
               )}
               {data.albums.length > 0 && (
-                <Shelf title="Альбомы">
+                <Shelf title={tx("Альбомы")}>
                   {data.albums.slice(0, 12).map((a) => (
                     <AlbumCard key={a.id} album={a} />
                   ))}
                 </Shelf>
               )}
               {!data.songs.length && !data.albums.length && !data.artists.length && (
-                <p className="px-4 pt-10 text-center text-sm text-subtle">Ничего не найдено по «{resultsQ}»</p>
+                <p className="px-4 pt-10 text-center text-sm text-subtle">{tx("Ничего не найдено по «{q}»", { q: resultsQ })}</p>
               )}
             </>
           )}
@@ -328,7 +329,7 @@ export default function SearchPage() {
               {data.songs.map((t) => (
                 <TrackRow key={t.id} track={t} onPlay={() => playSong(t, data.songs)} />
               ))}
-              {!data.songs.length && <p className="px-4 pt-10 text-center text-sm text-subtle">Треков не найдено</p>}
+              {!data.songs.length && <p className="px-4 pt-10 text-center text-sm text-subtle">{tx("Треков не найдено")}</p>}
             </div>
           )}
 
@@ -337,7 +338,7 @@ export default function SearchPage() {
               {data.albums.map((a) => (
                 <AlbumCard key={a.id} album={a} fluid />
               ))}
-              {!data.albums.length && <p className="col-span-full pt-10 text-center text-sm text-subtle">Альбомов не найдено</p>}
+              {!data.albums.length && <p className="col-span-full pt-10 text-center text-sm text-subtle">{tx("Альбомов не найдено")}</p>}
             </div>
           )}
 
@@ -356,7 +357,7 @@ export default function SearchPage() {
                   </div>
                 </Link>
               ))}
-              {!data.artists.length && <p className="px-4 pt-10 text-center text-sm text-subtle">Артистов не найдено</p>}
+              {!data.artists.length && <p className="px-4 pt-10 text-center text-sm text-subtle">{tx("Артистов не найдено")}</p>}
             </div>
           )}
         </div>

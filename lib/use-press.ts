@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import type { Track } from "@/lib/types";
 import { useUI } from "@/store/ui";
+import { tx } from "@/lib/i18n";
 
 type PressHandlers = {
   onPointerDown: (e: React.PointerEvent) => void;
@@ -52,7 +53,7 @@ export function useLongPress(onLong: () => void, ms = 480): PressHandlers {
 
 export function copyTrackName(t: Track) {
   const text = `${t.artist} — ${t.title}`;
-  const done = () => useUI.getState().showToast("Название скопировано");
+  const done = () => useUI.getState().showToast(tx("Название скопировано"));
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text) && done());
   } else if (fallbackCopy(text)) done();

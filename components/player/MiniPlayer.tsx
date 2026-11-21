@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -41,7 +42,7 @@ export function MiniPlayer() {
               className="flex min-w-0 flex-1 items-center gap-3 text-left"
               {...copyPress}
               onClick={() => setPlayerOpen(true)}
-              aria-label="Открыть плеер"
+              aria-label={tx("Открыть плеер")}
             >
               <Cover src={current.cover} alt="" className="h-11 w-11" rounded="rounded-[7px]" />
               <div className="min-w-0">
@@ -58,8 +59,8 @@ export function MiniPlayer() {
             <button
               type="button"
               {...prevPress}
-              className="flex h-11 w-9 items-center justify-center rounded-full text-fg active:scale-95 active:bg-fg/10"
-              aria-label="Предыдущий"
+              className="flex h-11 w-9 items-center max-[380px]:hidden justify-center rounded-full text-fg active:scale-95 active:bg-fg/10"
+              aria-label={tx("Предыдущий")}
             >
               <SkipBack className="h-[18px] w-[18px] fill-current" />
             </button>
@@ -67,7 +68,7 @@ export function MiniPlayer() {
               type="button"
               onClick={toggle}
               className="flex h-11 w-11 items-center justify-center rounded-full text-fg active:scale-95 active:bg-fg/10"
-              aria-label={isPlaying ? "Пауза" : "Играть"}
+              aria-label={isPlaying ? tx("Пауза") : tx("Играть")}
             >
               {isBuffering && isPlaying ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -81,7 +82,7 @@ export function MiniPlayer() {
               type="button"
               {...nextPress}
               className="flex h-11 w-9 items-center justify-center rounded-full text-fg active:scale-95 active:bg-fg/10"
-              aria-label="Следующий"
+              aria-label={tx("Следующий")}
             >
               <SkipForward className="h-5 w-5 fill-current" />
             </button>

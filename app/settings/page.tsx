@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { BarChart3, ChevronRight, Download, History, Music2, ThumbsDown, Trash2, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -13,7 +14,7 @@ import { THEMES } from "@/lib/themes";
 import { cn } from "@/lib/cn";
 import { useUI } from "@/store/ui";
 
-const mb = (b: number) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} ГБ` : `${Math.round(b / 1e6)} МБ`);
+const mb = (b: number) => (b >= 1e9 ? tx("{n} ГБ", { n: (b / 1e9).toFixed(1) }) : tx("{n} МБ", { n: Math.round(b / 1e6) }));
 
 function Row({
   icon,
@@ -108,14 +109,14 @@ export default function SettingsPage() {
       <div className="px-2 pt-3">
         <BackButton />
       </div>
-      <h1 className="px-4 pt-2 text-[28px] font-bold tracking-tight">Настройки</h1>
+      <h1 className="px-4 pt-2 text-[28px] font-bold tracking-tight">{tx("Настройки")}</h1>
 
       <div className="mt-4">
         <AccountCard />
       </div>
 
       <section className="mt-6">
-        <h2 className="px-5 pb-2 text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">Тема</h2>
+        <h2 className="px-5 pb-2 text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">{tx("Тема")}</h2>
         <div className="no-scrollbar flex gap-3 overflow-x-auto px-4 pb-1 md:grid md:grid-cols-7 md:overflow-visible">
           {THEMES.map((th) => (
             <button
@@ -137,18 +138,18 @@ export default function SettingsPage() {
                 <span className="absolute inset-x-2 bottom-2 h-8 rounded-md" style={{ background: th.card }} />
               </span>
               <span className={cn("mt-1.5 block truncate text-[12.5px]", theme === th.id ? "text-fg" : "text-muted")}>
-                {th.name}
+                {tx(th.name)}
               </span>
             </button>
           ))}
         </div>
       </section>
 
-      <Group title="Язык">
+      <Group title={tx("Язык")}>
         <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-4">
           {[
-            { id: "", label: "Как в системе" },
-            { id: "ru", label: "Русский" },
+            { id: "", label: tx("Как в системе") },
+            { id: "ru", label: tx("Русский") },
             { id: "en", label: "English" },
             { id: "pl", label: "Polski" },
           ].map((l) => (
@@ -168,56 +169,56 @@ export default function SettingsPage() {
         </div>
       </Group>
 
-      <Group title="Главная — что показывать">
+      <Group title={tx("Главная — что показывать")}>
         {HOME_SECTIONS.map((sec) => (
           <Toggle
             key={sec.id}
-            title={sec.title}
-            hint={sec.hint}
+            title={tx(sec.title)}
+            hint={sec.hint ? tx(sec.hint) : undefined}
             on={!hidden.includes(sec.id)}
             onChange={() => toggleSection(sec.id)}
           />
         ))}
       </Group>
 
-      <Group title="Рекомендации">
+      <Group title={tx("Рекомендации")}>
         <Link href="/onboarding" className="flex items-center gap-3.5 px-4 py-3 active:bg-fg/[0.04]">
           <Music2 className="h-[18px] w-[18px] text-muted" />
           <div className="min-w-0 flex-1">
-            <div className="text-[15px]">Мои артисты</div>
+            <div className="text-[15px]">{tx("Мои артисты")}</div>
             <div className="mt-1 flex -space-x-2">
               {artists.slice(0, 7).map((a) => (
                 <Cover key={a.key} src={a.thumbnail} alt="" className="h-7 w-7 ring-2 ring-card" rounded="rounded-full" />
               ))}
-              {artists.length === 0 && <span className="text-[13px] text-subtle">Не выбраны</span>}
+              {artists.length === 0 && <span className="text-[13px] text-subtle">{tx("Не выбраны")}</span>}
             </div>
           </div>
           <span className="text-[13px] text-subtle">{artists.length}</span>
           <ChevronRight className="h-4 w-4 text-subtle" />
         </Link>
-        <Row icon={<ThumbsDown />} title="Не нравится" value={dislikes} href="/library/disliked" />
-        <Row icon={<BarChart3 />} title="Статистика" href="/stats" />
+        <Row icon={<ThumbsDown />} title={tx("Не нравится")} value={dislikes} href="/library/disliked" />
+        <Row icon={<BarChart3 />} title={tx("Статистика")} href="/stats" />
         <Row
           icon={<History />}
-          title="Очистить историю прослушиваний"
+          title={tx("Очистить историю прослушиваний")}
           value={plays}
           onClick={() => {
-            if (confirm("Удалить историю прослушиваний на этом устройстве? Рекомендации начнут учиться заново.")) {
+            if (confirm(tx("Удалить историю прослушиваний на этом устройстве? Рекомендации начнут учиться заново."))) {
               clearHistory();
-              toast("История очищена");
+              toast(tx("История очищена"));
             }
           }}
         />
       </Group>
 
-      <Group title="Загрузки">
-        <Row icon={<Download />} title="Скачанное" value={`${count} · ${mb(bytes)}`} href="/library/downloads" />
+      <Group title={tx("Загрузки")}>
+        <Row icon={<Download />} title={tx("Скачанное")} value={`${count} · ${mb(bytes)}`} href="/library/downloads" />
         {usage && usage.quota > 0 && (
           <div className="px-4 py-3">
             <div className="mb-1.5 flex justify-between text-[12.5px] text-subtle">
-              <span>Занято на устройстве</span>
+              <span>{tx("Занято на устройстве")}</span>
               <span>
-                {mb(usage.usage)} из {mb(usage.quota)}
+                {mb(usage.usage)}{tx(" из ")}{mb(usage.quota)}
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-fg/10">
@@ -227,27 +228,26 @@ export default function SettingsPage() {
         )}
         <Row
           icon={<Trash2 />}
-          title="Удалить все загрузки"
+          title={tx("Удалить все загрузки")}
           danger
           onClick={() => {
-            if (count && confirm(`Удалить ${count} скачанных треков?`)) {
-              void removeAllDownloads().then(() => toast("Загрузки удалены"));
+            if (count && confirm(tx("Удалить скачанные треки ({n})?", { n: count }))) {
+              void removeAllDownloads().then(() => toast(tx("Загрузки удалены")));
             }
           }}
         />
       </Group>
 
-      <Group title="Диагностика">
+      <Group title={tx("Диагностика")}>
         <Row
           icon={<Wrench />}
-          title="Проверить YouTube"
+          title={tx("Проверить YouTube")}
           onClick={() => window.open("/api/debug", "_blank")}
         />
       </Group>
 
       <p className="px-5 pt-6 text-[12px] leading-relaxed text-subtle">
-        Лайки, плейлисты, артисты и история хранятся на устройстве и синхронизируются с облаком после входа. Скачанные
-        треки хранятся только на этом устройстве.
+        {tx("Лайки, плейлисты, артисты и история хранятся на устройстве и синхронизируются с облаком после входа. Скачанные треки хранятся только на этом устройстве.")}
       </p>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { BarChart3, Clock3, Disc3, Flame, Music2, SkipForward, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { BackButton } from "@/components/BackButton";
@@ -12,13 +13,13 @@ import { useHydrated, useLibrary } from "@/store/library";
 
 type Period = 7 | 30 | 0;
 const DAY = 864e5;
-const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const WEEKDAY_KEYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 function fmtDuration(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.round((sec % 3600) / 60);
-  if (h === 0) return `${m} мин`;
-  return `${h} ч ${m} мин`;
+  if (h === 0) return tx("{m} мин", { m });
+  return tx("{h} ч {m} мин", { h, m });
 }
 
 const startOfDay = (t: number) => {
@@ -83,12 +84,19 @@ function Bars({
           </div>
         )}
       </div>
-      <div className="mt-1.5 flex gap-[2px] text-[10.5px] tabular-nums text-subtle">
-        {labels.map((l, i) => (
-          <span key={i} className="flex-1 truncate text-center">
-            {i % tickEvery === 0 ? l : ""}
-          </span>
-        ))}
+      {/* tick labels are positioned, not squeezed into the bar columns */}
+      <div className="relative mt-1.5 h-4 text-[10.5px] tabular-nums text-subtle">
+        {labels.map((l, i) =>
+          i % tickEvery === 0 ? (
+            <span
+              key={i}
+              className="absolute -translate-x-1/2 whitespace-nowrap"
+              style={{ left: `${((i + 0.5) / labels.length) * 100}%` }}
+            >
+              {l}
+            </span>
+          ) : null,
+        )}
       </div>
     </figure>
   );
@@ -117,6 +125,7 @@ function Card({ title, children, className }: { title: string; children: React.R
 }
 
 export default function StatsPage() {
+  const WEEKDAYS = WEEKDAY_KEYS.map((d) => tx(d));
   const hydrated = useHydrated();
   const plays = useLibrary((s) => s.plays);
   const tracks = useLibrary((s) => s.tracks);
@@ -231,8 +240,8 @@ export default function StatsPage() {
       </div>
       <header className="flex flex-wrap items-end justify-between gap-3 pt-2 pb-4 md:pt-8">
         <div>
-          <h1 className="text-[28px] font-bold tracking-tight md:text-[34px]">Статистика</h1>
-          <p className="text-[13px] text-muted">Что и сколько вы слушали</p>
+          <h1 className="text-[28px] font-bold tracking-tight md:text-[34px]">{tx("Статистика")}</h1>
+          <p className="text-[13px] text-muted">{tx("Что и сколько вы слушали")}</p>
         </div>
         {/* filters: one row above the charts */}
         <div className="flex rounded-xl border border-line bg-card p-1" role="tablist">
@@ -248,7 +257,7 @@ export default function StatsPage() {
                 period === p ? "bg-fg text-bg" : "text-muted hover:text-fg",
               )}
             >
-              {p === 7 ? "7 дней" : p === 30 ? "30 дней" : "Всё время"}
+              {p === 7 ? tx("7 дней") : p === 30 ? tx("30 дней") : tx("Всё время")}
             </button>
           ))}
         </div>
@@ -257,26 +266,26 @@ export default function StatsPage() {
       {hydrated && plays.length === 0 ? (
         <div className="mt-10 flex flex-col items-center text-center">
           <BarChart3 className="h-10 w-10 text-subtle" />
-          <p className="mt-3 text-[15px] font-medium">Пока нечего показать</p>
-          <p className="mt-1 text-sm text-subtle">Слушайте музыку — статистика появится здесь.</p>
+          <p className="mt-3 text-[15px] font-medium">{tx("Пока нечего показать")}</p>
+          <p className="mt-1 text-sm text-subtle">{tx("Слушайте музыку — статистика появится здесь.")}</p>
         </div>
       ) : (
         <div className="space-y-3 md:space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-            <Tile icon={<Clock3 />} label="Время" value={fmtDuration(st.seconds)} sub={`${st.count} прослушиваний`} />
-            <Tile icon={<Music2 />} label="Треков" value={String(st.uniqTracks)} sub={`${likes} лайков · ${dislikes} дизлайков`} />
-            <Tile icon={<UsersRound />} label="Артистов" value={String(st.uniqArtists)} sub={`${downloads} скачано`} />
+            <Tile icon={<Clock3 />} label={tx("Время")} value={fmtDuration(st.seconds)} sub={tx("{n} прослушиваний", { n: st.count })} />
+            <Tile icon={<Music2 />} label={tx("Треков")} value={String(st.uniqTracks)} sub={tx("{likes} лайков · {dislikes} дизлайков", { likes, dislikes })} />
+            <Tile icon={<UsersRound />} label={tx("Артистов")} value={String(st.uniqArtists)} sub={tx("{n} скачано", { n: downloads })} />
             <Tile
               icon={<Flame />}
-              label="Дней подряд"
+              label={tx("Дней подряд")}
               value={String(st.streak)}
-              sub={st.count ? `Чаще всего в ${st.peakHour}:00` : undefined}
+              sub={st.count ? tx("Чаще всего в {h}:00", { h: st.peakHour }) : undefined}
             />
           </div>
 
-          <Card title={period ? "Минут в день" : "Минут в неделю"}>
+          <Card title={period ? tx("Минут в день") : tx("Минут в неделю")}>
             <Bars
-              label="Время прослушивания"
+              label={tx("Время прослушивания")}
               values={st.timeline.values}
               labels={st.timeline.labels}
               format={fmtMin}
@@ -286,23 +295,23 @@ export default function StatsPage() {
           </Card>
 
           <div className="grid gap-3 md:grid-cols-2 md:gap-4">
-            <Card title="По времени суток">
+            <Card title={tx("По времени суток")}>
               <Bars
-                label="По часам"
+                label={tx("По часам")}
                 values={st.hours}
                 labels={st.hours.map((_, h) => `${h}:00`)}
                 format={fmtMin}
                 tickEvery={6}
               />
             </Card>
-            <Card title="По дням недели">
-              <Bars label="По дням недели" values={st.weekdays} labels={WEEKDAYS} format={fmtMin} />
+            <Card title={tx("По дням недели")}>
+              <Bars label={tx("По дням недели")} values={st.weekdays} labels={WEEKDAYS} format={fmtMin} />
             </Card>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2 md:gap-4">
-            <Card title="Топ артистов">
-              {st.topArtists.length === 0 && <p className="text-sm text-subtle">Нет данных за период</p>}
+            <Card title={tx("Топ артистов")}>
+              {st.topArtists.length === 0 && <p className="text-sm text-subtle">{tx("Нет данных за период")}</p>}
               <ol className="space-y-3">
                 {st.topArtists.map((a, i) => (
                   <li key={a.name} className="flex items-center gap-3">
@@ -322,8 +331,8 @@ export default function StatsPage() {
               </ol>
             </Card>
 
-            <Card title="Топ треков">
-              {st.topTracks.length === 0 && <p className="text-sm text-subtle">Нет данных за период</p>}
+            <Card title={tx("Топ треков")}>
+              {st.topTracks.length === 0 && <p className="text-sm text-subtle">{tx("Нет данных за период")}</p>}
               <ol className="space-y-1">
                 {st.topTracks.map(({ track, plays: n }, i) => (
                   <li key={track.id}>
@@ -350,8 +359,8 @@ export default function StatsPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:gap-4">
-            <Tile icon={<Disc3 />} label="Дослушано до конца" value={`${st.completedPct}%`} />
-            <Tile icon={<SkipForward />} label="Пропущено сразу" value={`${st.skippedPct}%`} />
+            <Tile icon={<Disc3 />} label={tx("Дослушано до конца")} value={`${st.completedPct}%`} />
+            <Tile icon={<SkipForward />} label={tx("Пропущено сразу")} value={`${st.skippedPct}%`} />
           </div>
         </div>
       )}

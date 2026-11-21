@@ -1,11 +1,4 @@
-/** Russian plural: plural(5, ["трек", "трека", "треков"]) → "треков". */
-export function plural(n: number, forms: [string, string, string]): string {
-  const a = Math.abs(n) % 100;
-  const b = a % 10;
-  if (a > 10 && a < 20) return forms[2];
-  if (b > 1 && b < 5) return forms[1];
-  if (b === 1) return forms[0];
-  return forms[2];
-}
+import { pluralWord } from "./i18n";
 
-export const tracksWord = (n: number) => `${n} ${plural(n, ["трек", "трека", "треков"])}`;
+export const tracksWord = (n: number) => `${n} ${pluralWord(n, "track")}`;
+export const artistsWord = (n: number) => `${n} ${pluralWord(n, "artist")}`;

@@ -4,6 +4,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import type { FollowedArtist, PlayEvent, Playlist, Track } from "@/lib/types";
 import { getSupabase } from "@/lib/supabase";
+import { tx } from "@/lib/i18n";
 import { EMPTY_LIBRARY, MAX_PLAYS, useLibrary, type LibraryData } from "@/store/library";
 
 /*
@@ -33,7 +34,7 @@ interface AuthState {
 function friendly(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
   if (/could not find the table|schema cache|does not exist/i.test(msg)) {
-    return "В Supabase нет таблиц новой версии — выполните supabase/schema.sql в SQL Editor";
+    return tx("В Supabase нет таблиц новой версии — выполните supabase/schema.sql в SQL Editor");
   }
   return msg;
 }

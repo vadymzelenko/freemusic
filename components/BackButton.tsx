@@ -1,9 +1,10 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export function BackButton({ label = "Назад" }: { label?: string }) {
+export function BackButton({ label = tx("Назад") }: { label?: string }) {
   const router = useRouter();
   return (
     <button

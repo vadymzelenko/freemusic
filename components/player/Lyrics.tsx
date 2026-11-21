@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/cn";
 import type { Track } from "@/lib/types";
@@ -111,14 +112,14 @@ export function Lyrics({ track }: { track: Track }) {
   if (data?.plain) {
     return (
       <div className="no-scrollbar h-full overflow-y-auto overscroll-contain px-1 py-6">
-        <p className="mb-4 text-[12px] uppercase tracking-[0.1em] text-subtle">Текст без синхронизации</p>
+        <p className="mb-4 text-[12px] uppercase tracking-[0.1em] text-subtle">{tx("Текст без синхронизации")}</p>
         <p className="whitespace-pre-line text-[19px] font-semibold leading-relaxed text-fg/85">{data.plain}</p>
       </div>
     );
   }
   return (
     <div className="flex h-full items-center justify-center text-center text-[15px] text-subtle">
-      {data?.instrumental ? "Инструментальная композиция" : error ? "Не удалось загрузить текст" : "Текст не найден"}
+      {data?.instrumental ? tx("Инструментальная композиция") : error ? tx("Не удалось загрузить текст") : tx("Текст не найден")}
     </div>
   );
 }

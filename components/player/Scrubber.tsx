@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { useRef, useState } from "react";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -43,7 +44,7 @@ export function Scrubber({ compact = false, hideTimes = false }: { compact?: boo
         ref={trackRef}
         role="slider"
         tabIndex={0}
-        aria-label="Позиция"
+        aria-label={tx("Позиция")}
         aria-valuemin={0}
         aria-valuemax={Math.round(d)}
         aria-valuenow={Math.round(shown)}

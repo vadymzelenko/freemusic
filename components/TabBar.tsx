@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { House, Library, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,7 +29,7 @@ export function TabBar() {
               )}
             >
               <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
-              {label}
+              {tx(label)}
             </Link>
           );
         })}

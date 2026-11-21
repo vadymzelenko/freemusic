@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import {
   ChevronUp,
   ListMusic,
@@ -59,7 +60,7 @@ export function PlayerBar() {
       <div className="flex h-[84px] items-center gap-4 px-4 lg:px-5">
         {/* track */}
         <div className="flex min-w-0 flex-1 items-center gap-3 lg:w-[30%] lg:flex-none">
-          <button type="button" onClick={() => setPlayerOpen(true)} className="shrink-0" aria-label="Открыть плеер">
+          <button type="button" onClick={() => setPlayerOpen(true)} className="shrink-0" aria-label={tx("Открыть плеер")}>
             <Cover src={current.cover} alt="" className="h-14 w-14" rounded="rounded-md" />
           </button>
           <div className="min-w-0" {...copyPress}>
@@ -80,7 +81,7 @@ export function PlayerBar() {
             type="button"
             onClick={() => toggleLike(current)}
             className="ml-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted hover:text-fg lg:flex"
-            aria-label="Нравится"
+            aria-label={tx("Нравится")}
             aria-pressed={liked}
           >
             <ThumbsUp className={cn("h-[18px] w-[18px]", liked && "fill-fg text-fg")} />
@@ -90,14 +91,14 @@ export function PlayerBar() {
         {/* transport + timeline */}
         <div className="flex flex-col items-center md:flex-none lg:flex-1">
           <div className="flex items-center gap-2">
-            <button type="button" {...prevPress} className="flex h-10 w-10 items-center justify-center rounded-full text-fg hover:bg-fg/10" aria-label="Предыдущий">
+            <button type="button" {...prevPress} className="flex h-10 w-10 items-center justify-center rounded-full text-fg hover:bg-fg/10" aria-label={tx("Предыдущий")}>
               <SkipBack className="h-5 w-5 fill-current" />
             </button>
             <button
               type="button"
               onClick={toggle}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-fg text-bg transition-transform active:scale-95"
-              aria-label={isPlaying ? "Пауза" : "Играть"}
+              aria-label={isPlaying ? tx("Пауза") : tx("Играть")}
             >
               {isBuffering && isPlaying ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -107,7 +108,7 @@ export function PlayerBar() {
                 <Play className="ml-0.5 h-5 w-5 fill-current" />
               )}
             </button>
-            <button type="button" {...nextPress} className="flex h-10 w-10 items-center justify-center rounded-full text-fg hover:bg-fg/10" aria-label="Следующий">
+            <button type="button" {...nextPress} className="flex h-10 w-10 items-center justify-center rounded-full text-fg hover:bg-fg/10" aria-label={tx("Следующий")}>
               <SkipForward className="h-5 w-5 fill-current" />
             </button>
           </div>
@@ -122,7 +123,7 @@ export function PlayerBar() {
             type="button"
             onClick={() => setRadio(!radio)}
             className={cn("flex h-9 w-9 items-center justify-center rounded-full", radio ? "text-fg" : "text-subtle hover:text-fg")}
-            aria-label="Радио"
+            aria-label={tx("Радио")}
             aria-pressed={radio}
           >
             <Radio className="h-[18px] w-[18px]" />
@@ -134,11 +135,11 @@ export function PlayerBar() {
               setPlayerOpen(true);
             }}
             className="flex h-9 w-9 items-center justify-center rounded-full text-subtle hover:text-fg"
-            aria-label="Текст песни"
+            aria-label={tx("Текст песни")}
           >
             <MicVocal className="h-[18px] w-[18px]" />
           </button>
-          <Link href="/queue" className="flex h-9 w-9 items-center justify-center rounded-full text-subtle hover:text-fg" aria-label="Очередь">
+          <Link href="/queue" className="flex h-9 w-9 items-center justify-center rounded-full text-subtle hover:text-fg" aria-label={tx("Очередь")}>
             <ListMusic className="h-[18px] w-[18px]" />
           </Link>
           <div className="ml-1 hidden items-center gap-2 lg:flex">
@@ -146,7 +147,7 @@ export function PlayerBar() {
               type="button"
               onClick={() => setVolume(volume > 0 ? 0 : 1)}
               className="flex h-9 w-9 items-center justify-center rounded-full text-subtle hover:text-fg"
-              aria-label="Громкость"
+              aria-label={tx("Громкость")}
             >
               <VolIcon className="h-[18px] w-[18px]" />
             </button>
@@ -159,14 +160,14 @@ export function PlayerBar() {
               onChange={(e) => setVolume(parseFloat(e.target.value))}
               className="vol w-24"
               style={{ ["--p" as string]: `${volume * 100}%` }}
-              aria-label="Громкость"
+              aria-label={tx("Громкость")}
             />
           </div>
           <button
             type="button"
             onClick={() => setPlayerOpen(true)}
             className="flex h-9 w-9 items-center justify-center rounded-full text-subtle hover:text-fg"
-            aria-label="Развернуть"
+            aria-label={tx("Развернуть")}
           >
             <ChevronUp className="h-5 w-5" />
           </button>

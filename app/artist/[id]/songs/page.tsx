@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { Play, Search as SearchIcon, Shuffle } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -37,7 +38,7 @@ export default function ArtistSongsPage() {
       </div>
       <header className="px-4 pt-2 pb-4">
         <div className="text-[13px] text-subtle">{data?.name ?? " "}</div>
-        <h1 className="text-[28px] font-bold tracking-tight">Все треки</h1>
+        <h1 className="text-[28px] font-bold tracking-tight">{tx("Все треки")}</h1>
         <p className="text-[13px] text-muted">{data ? tracksWord(all.length) : " "}</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button
@@ -46,14 +47,14 @@ export default function ArtistSongsPage() {
             onClick={() => play(0)}
             className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-fg px-5 text-[15px] font-semibold text-bg disabled:opacity-30 md:flex-none"
           >
-            <Play className="h-4 w-4 fill-current" /> Слушать
+            <Play className="h-4 w-4 fill-current" />{tx(" Слушать")}
           </button>
           <button
             type="button"
             disabled={!tracks.length}
             onClick={() => play(0, true)}
             className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-card disabled:opacity-30"
-            aria-label="Перемешать"
+            aria-label={tx("Перемешать")}
           >
             <Shuffle className="h-4 w-4" />
           </button>
@@ -64,14 +65,14 @@ export default function ArtistSongsPage() {
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Фильтр по названию"
+            placeholder={tx("Фильтр по названию")}
             className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-subtle"
           />
         </div>
       </header>
 
       {error && !data ? (
-        <p className="px-4 pt-6 text-center text-sm text-subtle">Не удалось загрузить: {error}</p>
+        <p className="px-4 pt-6 text-center text-sm text-subtle">{tx("Не удалось загрузить: ")}{error}</p>
       ) : !data ? (
         <TrackListSkeleton count={12} />
       ) : (
@@ -79,7 +80,7 @@ export default function ArtistSongsPage() {
           {tracks.map((t, i) => (
             <TrackRow key={t.id} track={t} index={i} onPlay={() => play(i)} />
           ))}
-          {!tracks.length && <p className="px-4 pt-6 text-center text-sm text-subtle">Ничего не найдено</p>}
+          {!tracks.length && <p className="px-4 pt-6 text-center text-sm text-subtle">{tx("Ничего не найдено")}</p>}
         </div>
       )}
     </div>

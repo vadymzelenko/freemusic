@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import {
   createContext,
   useCallback,
@@ -620,10 +621,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         failuresRef.current = 0;
         a.pause();
         setIsPlaying(false);
-        setError("Не удалось загрузить аудио");
+        setError(tx("Не удалось загрузить аудио"));
         fetch(prepareUrl(t.id))
           .then((r) => r.json() as Promise<{ error?: string }>)
-          .then((d) => d.error && setError(`Не удалось загрузить аудио: ${d.error}`))
+          .then((d) => d.error && setError(tx("Не удалось загрузить аудио: {e}", { e: d.error! })))
           .catch(() => {});
         return;
       }

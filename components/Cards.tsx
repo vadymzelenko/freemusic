@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { Play } from "lucide-react";
 import Link from "next/link";
 import { Cover } from "@/components/ui/Cover";
@@ -19,7 +20,7 @@ export function AlbumCard({ album, width, fluid }: { album: AlbumSummary; width?
       <Cover src={album.cover} alt="" className="aspect-square w-full" rounded="rounded-lg" />
       <div className="mt-2 truncate text-[14px] font-medium">{album.title}</div>
       <div className="truncate text-[12.5px] text-muted">
-        {[album.kind === "single" ? "Сингл" : album.kind === "ep" ? "EP" : null, album.year, album.artist]
+        {[album.kind === "single" ? tx("Сингл") : album.kind === "ep" ? "EP" : null, album.year, album.artist]
           .filter(Boolean)
           .join(" · ")}
       </div>
@@ -51,7 +52,7 @@ export function TrackCard({ track, onPlay, width }: { track: Track; onPlay: () =
           openActions(track);
         }}
         className="group relative block w-full text-left"
-        aria-label={`Воспроизвести ${track.title}`}
+        aria-label={tx("Воспроизвести {title}", { title: track.title })}
       >
         <Cover src={track.cover} alt="" className="aspect-square w-full" rounded="rounded-lg" />
         <div

@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRef } from "react";
@@ -30,7 +31,7 @@ export function Shelf({
         <div className="flex shrink-0 items-center gap-1">
           {href && (
             <Link href={href} className="mr-1 flex items-center text-[13px] text-muted hover:text-fg">
-              Все <ChevronRight className="h-4 w-4" />
+              {tx("Все ")}<ChevronRight className="h-4 w-4" />
             </Link>
           )}
           {/* arrows for mouse users */}
@@ -38,7 +39,7 @@ export function Shelf({
             type="button"
             onClick={() => scrollBy(-1)}
             className="hidden h-8 w-8 items-center justify-center rounded-full border border-line text-muted hover:text-fg lg:flex"
-            aria-label="Назад"
+            aria-label={tx("Назад")}
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -46,7 +47,7 @@ export function Shelf({
             type="button"
             onClick={() => scrollBy(1)}
             className="hidden h-8 w-8 items-center justify-center rounded-full border border-line text-muted hover:text-fg lg:flex"
-            aria-label="Вперёд"
+            aria-label={tx("Вперёд")}
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -54,7 +55,7 @@ export function Shelf({
       </div>
       <div
         ref={scroller}
-        className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-1 md:gap-4"
+        className="no-scrollbar flex snap-x snap-mandatory items-start gap-3 overflow-x-auto scroll-px-4 px-4 pb-1 md:gap-4"
       >
         {children}
       </div>

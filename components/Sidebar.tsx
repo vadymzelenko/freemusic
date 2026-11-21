@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { BarChart3, Download, House, Library, ListMusic, Plus, Search, Settings, ThumbsUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -54,20 +55,20 @@ export function Sidebar() {
 
       <nav className="space-y-0.5 px-3">
         {NAV.map((n) => (
-          <NavLink key={n.href} href={n.href} label={n.label} icon={n.icon} active={n.match(pathname)} />
+          <NavLink key={n.href} href={n.href} label={tx(n.label)} icon={n.icon} active={n.match(pathname)} />
         ))}
       </nav>
 
       <div className="mx-5 my-4 h-px bg-line md:max-lg:mx-4" />
 
       <nav className="space-y-0.5 px-3">
-        <NavLink href="/library/liked" label="Любимые треки" icon={ThumbsUp} active={pathname === "/library/liked"} />
-        <NavLink href="/library/downloads" label="Скачанное" icon={Download} active={pathname === "/library/downloads"} />
+        <NavLink href="/library/liked" label={tx("Любимые треки")} icon={ThumbsUp} active={pathname === "/library/liked"} />
+        <NavLink href="/library/downloads" label={tx("Скачанное")} icon={Download} active={pathname === "/library/downloads"} />
       </nav>
 
       <div className="mt-5 hidden items-center justify-between px-6 lg:flex">
-        <span className="text-[11.5px] font-medium uppercase tracking-[0.1em] text-subtle">Плейлисты</span>
-        <Link href="/library" className="text-subtle hover:text-fg" aria-label="Новый плейлист">
+        <span className="text-[11.5px] font-medium uppercase tracking-[0.1em] text-subtle">{tx("Плейлисты")}</span>
+        <Link href="/library" className="text-subtle hover:text-fg" aria-label={tx("Новый плейлист")}>
           <Plus className="h-4 w-4" />
         </Link>
       </div>
@@ -89,7 +90,7 @@ export function Sidebar() {
       </div>
 
       <div className="mt-auto px-3 pt-2">
-        <NavLink href="/settings" label="Настройки" icon={Settings} active={pathname.startsWith("/settings")} />
+        <NavLink href="/settings" label={tx("Настройки")} icon={Settings} active={pathname.startsWith("/settings")} />
       </div>
     </aside>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import {
   ChevronDown,
@@ -24,6 +25,7 @@ import { useUI } from "@/store/ui";
 import { copyTrackName, useHoldRepeat, useLongPress } from "@/lib/use-press";
 import { usePlayer } from "./PlayerProvider";
 import { Lyrics } from "./Lyrics";
+import { useMediaQuery } from "@/lib/use-media";
 import { Scrubber } from "./Scrubber";
 
 export function FullPlayer() {
@@ -48,6 +50,7 @@ export function FullPlayer() {
   const toggleDislike = useLibrary((s) => s.toggleDislike);
   const openActions = useUI((s) => s.openActions);
   const lyricsOpen = useUI((s) => s.lyricsOpen);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const setLyricsOpen = useUI((s) => s.setLyricsOpen);
   const toast = useUI((s) => s.showToast);
   const dragControls = useDragControls();
@@ -112,9 +115,11 @@ export function FullPlayer() {
 
           <div className="relative mx-auto flex h-full w-full max-w-md flex-col px-6 pt-safe pb-safe lg:max-w-6xl lg:flex-row lg:items-center lg:gap-16 lg:px-12">
           {/* desktop: lyrics column on the right */}
-          <div className="order-2 hidden h-[72vh] min-w-0 flex-1 lg:block">
-            <Lyrics track={current} />
-          </div>
+          {isDesktop && (
+            <div className="order-2 h-[72vh] min-w-0 flex-1">
+              <Lyrics track={current} />
+            </div>
+          )}
           <div className="order-1 flex h-full w-full flex-col lg:h-auto lg:max-h-full lg:w-[420px] lg:shrink-0">
             {/* Header — drag handle area */}
             <div
@@ -125,13 +130,13 @@ export function FullPlayer() {
                 type="button"
                 onClick={close}
                 className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-fg/90 active:bg-fg/10"
-                aria-label="Свернуть"
+                aria-label={tx("Свернуть")}
               >
                 <ChevronDown className="h-6 w-6" />
               </button>
               <div className="text-center">
                 <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-                  {radio ? "Радио" : "Сейчас играет"}
+                  {radio ? tx("Радио") : tx("Сейчас играет")}
                 </div>
                 {current.album && <div className="max-w-[200px] truncate text-xs text-fg/80">{current.album}</div>}
               </div>
@@ -139,15 +144,15 @@ export function FullPlayer() {
                 href="/queue"
                 onClick={close}
                 className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-fg/90 active:bg-fg/10"
-                aria-label="Очередь"
+                aria-label={tx("Очередь")}
               >
                 <ListMusic className="h-5 w-5" />
               </Link>
             </div>
 
             {/* Lyrics (replaces artwork) */}
-            {lyricsOpen && (
-              <div className="relative min-h-0 flex-1 py-2 lg:hidden">
+            {lyricsOpen && !isDesktop && (
+              <div className="relative min-h-0 flex-1 py-2">
                 <Lyrics track={current} />
               </div>
             )}
@@ -209,12 +214,12 @@ export function FullPlayer() {
                   const wasDisliked = disliked;
                   toggleDislike(current);
                   if (!wasDisliked) {
-                    toast("Больше не будем это предлагать");
+                    toast(tx("Больше не будем это предлагать"));
                     next();
                   }
                 }}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-fg/[0.04]"
-                aria-label={disliked ? "Убрать дизлайк" : "Не нравится"}
+                aria-label={disliked ? tx("Убрать дизлайк") : tx("Не нравится")}
                 aria-pressed={disliked}
               >
                 <ThumbsDown className={cn("h-5 w-5 transition-colors", disliked ? "fill-fg text-fg" : "text-fg/80")} />
@@ -224,7 +229,7 @@ export function FullPlayer() {
                 whileTap={{ scale: 0.85 }}
                 onClick={() => toggleLike(current)}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-fg/[0.04]"
-                aria-label={liked ? "Убрать из любимых" : "Нравится"}
+                aria-label={liked ? tx("Убрать из любимых") : tx("Нравится")}
                 aria-pressed={liked}
               >
                 <ThumbsUp className={cn("h-5 w-5 transition-colors", liked ? "fill-fg text-fg" : "text-fg/80")} />
@@ -249,7 +254,7 @@ export function FullPlayer() {
                 whileTap={{ scale: 0.88 }}
                 {...prevPress}
                 className="flex h-14 w-14 items-center justify-center rounded-full text-fg"
-                aria-label="Предыдущий"
+                aria-label={tx("Предыдущий")}
               >
                 <SkipBack className="h-8 w-8 fill-current" />
               </motion.button>
@@ -258,7 +263,7 @@ export function FullPlayer() {
                 whileTap={{ scale: 0.92 }}
                 onClick={toggle}
                 className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-fg text-bg shadow-lg"
-                aria-label={isPlaying ? "Пауза" : "Играть"}
+                aria-label={isPlaying ? tx("Пауза") : tx("Играть")}
               >
                 {isBuffering && isPlaying ? (
                   <Loader2 className="h-8 w-8 animate-spin" />
@@ -273,7 +278,7 @@ export function FullPlayer() {
                 whileTap={{ scale: 0.88 }}
                 {...nextPress}
                 className="flex h-14 w-14 items-center justify-center rounded-full text-fg"
-                aria-label="Следующий"
+                aria-label={tx("Следующий")}
               >
                 <SkipForward className="h-8 w-8 fill-current" />
               </motion.button>
@@ -285,7 +290,7 @@ export function FullPlayer() {
                 type="button"
                 onClick={() => {
                   setRadio(!radio);
-                  toast(radio ? "Бесконечное радио выключено" : "Бесконечное радио включено");
+                  toast(radio ? tx("Бесконечное радио выключено") : tx("Бесконечное радио включено"));
                 }}
                 className={cn(
                   "flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
@@ -294,12 +299,12 @@ export function FullPlayer() {
                 aria-pressed={radio}
               >
                 <Radio className="h-4 w-4" />
-                Радио
+                {tx("Радио")}
               </button>
               <div className="min-w-0 flex-1 px-3 text-center text-[12px] text-subtle">
                 {upNext ? (
                   <span className="block truncate">
-                    Далее: <span className="text-muted">{upNext.title}</span>
+                    {tx("Далее: ")}<span className="text-muted">{upNext.title}</span>
                   </span>
                 ) : null}
               </div>
@@ -310,7 +315,7 @@ export function FullPlayer() {
                   "mr-2 flex h-9 w-9 items-center justify-center rounded-full border transition-colors lg:hidden",
                   lyricsOpen ? "border-fg bg-fg text-bg" : "border-line text-muted hover:text-fg",
                 )}
-                aria-label="Текст песни"
+                aria-label={tx("Текст песни")}
                 aria-pressed={lyricsOpen}
               >
                 <MicVocal className="h-4 w-4" />
@@ -319,7 +324,7 @@ export function FullPlayer() {
                 type="button"
                 onClick={() => openActions(current)}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted hover:text-fg"
-                aria-label="Ещё"
+                aria-label={tx("Ещё")}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </button>

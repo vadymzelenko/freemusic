@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import {
   Disc3,
   Download,
@@ -62,56 +63,56 @@ export function TrackActionsSheet() {
     >
       {track && (
         <div className="border-t border-line pt-1">
-          <SheetItem icon={<ListStart />} onClick={run(() => playNext(track), "Сыграет следующим")}>
-            Воспроизвести следующим
+          <SheetItem icon={<ListStart />} onClick={run(() => playNext(track), tx("Сыграет следующим"))}>
+            {tx("Воспроизвести следующим")}
           </SheetItem>
-          <SheetItem icon={<ListEnd />} onClick={run(() => addToQueue(track), "Добавлено в очередь")}>
-            Добавить в очередь
+          <SheetItem icon={<ListEnd />} onClick={run(() => addToQueue(track), tx("Добавлено в очередь"))}>
+            {tx("Добавить в очередь")}
           </SheetItem>
           <SheetItem
             icon={<Radio />}
             onClick={run(() => {
               setRadio(true);
               playTrack(track);
-            }, "Радио по треку")}
+            }, tx("Радио по треку"))}
           >
-            Запустить радио
+            {tx("Запустить радио")}
           </SheetItem>
           <SheetItem
             icon={<ThumbsUp className={reaction === 1 ? "fill-fg text-fg" : ""} />}
-            onClick={run(() => toggleLike(track), reaction === 1 ? "Удалено из любимых" : "Добавлено в любимые")}
+            onClick={run(() => toggleLike(track), reaction === 1 ? tx("Удалено из любимых") : tx("Добавлено в любимые"))}
           >
-            {reaction === 1 ? "Убрать из любимых" : "Нравится"}
+            {reaction === 1 ? tx("Убрать из любимых") : tx("Нравится")}
           </SheetItem>
           <SheetItem
             icon={<ThumbsDown className={reaction === -1 ? "fill-fg text-fg" : ""} />}
             onClick={run(() => {
               toggleDislike(track);
               if (reaction !== -1 && current?.id === track.id) next();
-            }, reaction === -1 ? "Дизлайк снят" : "Больше не будем это предлагать")}
+            }, reaction === -1 ? tx("Дизлайк снят") : tx("Больше не будем это предлагать"))}
           >
-            {reaction === -1 ? "Убрать дизлайк" : "Не нравится"}
+            {reaction === -1 ? tx("Убрать дизлайк") : tx("Не нравится")}
           </SheetItem>
           <SheetItem icon={<ListPlus />} onClick={() => openPicker(track)}>
-            Добавить в плейлист
+            {tx("Добавить в плейлист")}
           </SheetItem>
           {downloaded ? (
-            <SheetItem icon={<Trash2 />} onClick={run(() => void removeDownload(track.id), "Загрузка удалена")}>
-              Удалить загрузку
+            <SheetItem icon={<Trash2 />} onClick={run(() => void removeDownload(track.id), tx("Загрузка удалена"))}>
+              {tx("Удалить загрузку")}
             </SheetItem>
           ) : (
-            <SheetItem icon={<Download />} onClick={run(() => downloadTracks([track]), "Скачиваем…")}>
-              Скачать
+            <SheetItem icon={<Download />} onClick={run(() => downloadTracks([track]), tx("Скачиваем…"))}>
+              {tx("Скачать")}
             </SheetItem>
           )}
           {track.artistId && (
             <SheetItem icon={<UserRound />} onClick={go(`/artist/${track.artistId}`)}>
-              Перейти к артисту
+              {tx("Перейти к артисту")}
             </SheetItem>
           )}
           {track.albumId && (
             <SheetItem icon={<Disc3 />} onClick={go(`/album/${track.albumId}`)}>
-              Перейти к альбому
+              {tx("Перейти к альбому")}
             </SheetItem>
           )}
         </div>

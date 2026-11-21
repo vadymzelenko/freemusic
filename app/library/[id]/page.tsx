@@ -1,5 +1,6 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
 import { ChevronLeft, ThumbsUp, Pencil, Play, Shuffle, ThumbsDown, Trash2, X } from "lucide-react";
 import { tracksWord } from "@/lib/plural";
 import Link from "next/link";
@@ -46,14 +47,14 @@ export default function CollectionPage() {
     return ids.map((x) => all[x]).filter((t): t is Track => !!t);
   }, [isLiked, likedIds, playlist, all]);
 
-  const title = isDisliked ? "Не нравится" : isLiked ? "Любимые треки" : (playlist?.name ?? "Плейлист");
+  const title = isDisliked ? tx("Не нравится") : isLiked ? tx("Любимые треки") : (playlist?.name ?? tx("Плейлист"));
 
   if (hydrated && !isLiked && !playlist) {
     return (
       <div className="px-4 pt-10 text-center">
-        <p className="text-sm text-subtle">Плейлист не найден.</p>
+        <p className="text-sm text-subtle">{tx("Плейлист не найден.")}</p>
         <Link href="/library" className="mt-3 inline-block text-sm underline underline-offset-4">
-          В медиатеку
+          {tx("В медиатеку")}
         </Link>
       </div>
     );
@@ -72,7 +73,7 @@ export default function CollectionPage() {
           href="/library"
           className="flex h-10 items-center gap-0.5 rounded-full pr-3 text-[15px] text-muted active:bg-fg/10"
         >
-          <ChevronLeft className="h-5 w-5" /> Медиатека
+          <ChevronLeft className="h-5 w-5" />{tx(" Медиатека")}
         </Link>
         {!isLiked && playlist && (
           <div className="flex">
@@ -83,20 +84,20 @@ export default function CollectionPage() {
                 setEditing(true);
               }}
               className="flex h-10 w-10 items-center justify-center rounded-full text-muted active:bg-fg/10"
-              aria-label="Переименовать"
+              aria-label={tx("Переименовать")}
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => {
-                if (confirm(`Удалить «${playlist.name}»?`)) {
+                if (confirm(tx("Удалить «{name}»?", { name: playlist.name }))) {
                   deletePlaylist(playlist.id);
                   router.replace("/library");
                 }
               }}
               className="flex h-10 w-10 items-center justify-center rounded-full text-muted active:bg-fg/10"
-              aria-label="Удалить плейлист"
+              aria-label={tx("Удалить плейлист")}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -121,7 +122,7 @@ export default function CollectionPage() {
             onClick={() => playAll(false)}
             className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-fg text-[15px] font-semibold text-bg active:opacity-90 disabled:opacity-30"
           >
-            <Play className="h-4 w-4 fill-current" /> Слушать
+            <Play className="h-4 w-4 fill-current" />{tx(" Слушать")}
           </button>
           <button
             type="button"
@@ -129,7 +130,7 @@ export default function CollectionPage() {
             onClick={() => playAll(true)}
             className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-card text-[15px] font-semibold active:bg-fg/10 disabled:opacity-30"
           >
-            <Shuffle className="h-4 w-4" /> Перемешать
+            <Shuffle className="h-4 w-4" />{tx(" Перемешать")}
           </button>
           {!isDisliked && <DownloadAllButton tracks={tracks} />}
         </div>
@@ -140,10 +141,10 @@ export default function CollectionPage() {
       ) : tracks.length === 0 ? (
         <p className="px-4 pt-4 text-center text-sm text-subtle">
           {isDisliked
-            ? "Здесь будут треки с дизлайком — их не будет в рекомендациях."
+            ? tx("Здесь будут треки с дизлайком — их не будет в рекомендациях.")
             : isLiked
-              ? "Отмечайте треки сердечком — они появятся здесь."
-              : "Плейлист пуст."}
+              ? tx("Ставьте лайк трекам — они появятся здесь.")
+              : tx("Плейлист пуст.")}
         </p>
       ) : (
         <div className="border-t border-line pt-1">
@@ -163,7 +164,7 @@ export default function CollectionPage() {
                     isDisliked ? toggleDislike(t) : isLiked ? toggleLike(t) : playlist && removeFromPlaylist(playlist.id, t.id)
                   }
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-fg/10"
-                  aria-label="Удалить"
+                  aria-label={tx("Удалить")}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -176,7 +177,7 @@ export default function CollectionPage() {
       <Sheet
         open={editing}
         onClose={() => setEditing(false)}
-        title={<div className="text-[15px] font-semibold">Переименовать</div>}
+        title={<div className="text-[15px] font-semibold">{tx("Переименовать")}</div>}
       >
         <form
           className="flex gap-2 px-5 pb-2"
@@ -193,7 +194,7 @@ export default function CollectionPage() {
             className="h-11 flex-1 rounded-lg border border-line bg-bg px-3 text-[16px] outline-none focus:border-line-strong"
           />
           <button type="submit" className="h-11 rounded-lg bg-fg px-4 text-sm font-medium text-bg">
-            Готово
+            {tx("Готово")}
           </button>
         </form>
       </Sheet>

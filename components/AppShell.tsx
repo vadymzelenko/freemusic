@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { resolveLang, setCurrentLang, type Lang } from "@/lib/i18n";
 import { TabBar } from "@/components/TabBar";
 import { Sidebar } from "@/components/Sidebar";
 import { MiniPlayer } from "@/components/player/MiniPlayer";
@@ -13,6 +14,21 @@ import { ServiceWorker } from "@/components/ServiceWorker";
 import { applyTheme } from "@/lib/themes";
 import { useHydrated, useLibrary } from "@/store/library";
 
+/** Applies the language; the UI subtree is re-mounted (keyed) when it changes. Audio is unaffected. */
+function useLang(): Lang {
+  const pref = useLibrary((s) => s.lang);
+  const hydrated = useHydrated();
+  const [lang, setLang] = useState<Lang>("ru"); // SSR renders Russian; switch after hydration
+  useEffect(() => {
+    if (!hydrated) return;
+    const l = resolveLang(pref);
+    setCurrentLang(l);
+    document.documentElement.lang = l;
+    setLang(l);
+  }, [pref, hydrated]);
+  return lang;
+}
+
 function ThemeSync() {
   const theme = useLibrary((s) => s.theme);
   const hydrated = useHydrated();
@@ -24,8 +40,9 @@ function ThemeSync() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const lang = useLang();
   return (
-    <>
+    <Fragment key={lang}>
       <ThemeSync />
       {/* Opaque strip under the translucent iOS status bar */}
       <div className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[var(--safe-top)] bg-bg" />
@@ -41,6 +58,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <PlaylistPickerSheet />
       <Toast />
       <ServiceWorker />
-    </>
+    </Fragment>
   );
 }
