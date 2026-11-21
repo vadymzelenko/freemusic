@@ -3,6 +3,7 @@
 import { ChevronRight, Heart, ListMusic, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { AccountCard } from "@/components/AccountCard";
 import { PageHeader } from "@/components/PageHeader";
 import { Cover } from "@/components/ui/Cover";
 import { Sheet } from "@/components/ui/Sheet";
@@ -47,7 +48,9 @@ export default function LibraryPage() {
         </button>
       </PageHeader>
 
-      <div className="space-y-1 px-2 pt-2">
+      <AccountCard />
+
+      <div className="space-y-1 px-2 pt-3">
         <Link
           href="/library/liked"
           className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"

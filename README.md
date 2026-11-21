@@ -12,14 +12,35 @@ npm run dev        # http://localhost:3000
 ### Деплой на Vercel
 
 1. Импортируйте репозиторий на vercel.com → **New Project** (фреймворк определится сам).
-2. Переменные окружения (все необязательные):
+2. Переменные окружения (все необязательные, пример — `.env.example`):
    | Переменная | Назначение |
    |---|---|
-   | `YT_COOKIE` | Cookie залогиненной сессии YouTube. Помогает, если на IP дата-центра YouTube отвечает «Sign in to confirm you're not a bot». |
+   | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Включают вход через Google и облачную синхронизацию (см. ниже). Без них данные живут только в браузере. |
+   | `YT_COOKIE` | Cookie вашего аккаунта YouTube — только если YouTube блокирует сервер Vercel ошибкой «Sign in to confirm you're not a bot». |
    | `YT_CLIENTS` | Порядок InnerTube-клиентов для получения потока, по умолчанию `ANDROID_VR,IOS,TV,WEB_EMBEDDED,MWEB`. |
    | `YT_LOCATION` | Регион каталога (`US` по умолчанию). |
-   | `NEXT_PUBLIC_STREAM_API_URL` | Базовый URL внешнего бэкенда для `/api/*`. Пусто — локальные API Routes. |
+   | `NEXT_PUBLIC_STREAM_API_URL` | Адрес отдельного сервера для `/api/*`. Пусто — API работает в этом же проекте на Vercel. |
 3. На iPhone: Safari → «Поделиться» → **На экран «Домой»**.
+
+### Supabase + вход через Google
+
+1. Создайте проект на [supabase.com](https://supabase.com).
+2. **SQL Editor** → вставьте содержимое `supabase/schema.sql` → **Run**. Создастся таблица `user_library` с RLS: каждый пользователь видит только свою строку.
+3. **Google Cloud Console** → APIs & Services → Credentials → **Create OAuth client ID** (Web application).
+   - Authorized redirect URI: `https://<ваш-проект>.supabase.co/auth/v1/callback`
+4. Supabase → **Authentication → Sign In / Providers → Google** → включите, вставьте Client ID и Client Secret.
+5. Supabase → **Authentication → URL Configuration**:
+   - Site URL: `https://<ваш-домен>.vercel.app`
+   - Redirect URLs: `https://<ваш-домен>.vercel.app/**` (и `http://localhost:3000/**` для разработки)
+6. Supabase → **Project Settings → API**: скопируйте Project URL и anon (publishable) key в `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` на Vercel и сделайте Redeploy.
+
+Кнопка «Войти» появится в «Медиатеке». При первом входе локальные лайки/плейлисты объединяются с облачными; дальше изменения отправляются в Supabase через 1,5 с, а при возвращении в приложение подтягиваются изменения с других устройств.
+
+### Как получить `YT_COOKIE` (только если нужно)
+
+1. В браузере на компьютере войдите в music.youtube.com (лучше отдельным, не основным аккаунтом).
+2. DevTools (F12) → вкладка **Network** → обновите страницу → кликните любой запрос к `music.youtube.com` → **Request Headers** → скопируйте значение заголовка `cookie` целиком.
+3. Вставьте эту строку в `YT_COOKIE` на Vercel и сделайте Redeploy. Cookie живёт несколько месяцев; никому её не показывайте — это доступ к аккаунту.
 
 ## Архитектура
 
@@ -54,7 +75,8 @@ store/library.ts         — zustand + localStorage (лайки, плейлис�
 
 ### Хранилище
 
-Сейчас данные хранятся в `localStorage` и синхронизируются между вкладками (событие `storage`) — ничего настраивать не нужно. Для синхронизации между устройствами можно повесить Supabase на `store/library.ts` (вся работа с данными идёт через этот стор).
+- Всегда: `localStorage` (zustand persist, `store/library.ts`) + синхронизация между вкладками — приложение работает и офлайн, и без аккаунта.
+- После входа через Google: копия библиотеки хранится в Supabase (`lib/cloud-sync.ts`, таблица `user_library`, одна JSON-строка на пользователя).
 
 ## Ограничения
 
