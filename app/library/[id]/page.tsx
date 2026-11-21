@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Heart, Pencil, Play, Shuffle, ThumbsDown, Trash2, X } from "lucide-react";
+import { ChevronLeft, ThumbsUp, Pencil, Play, Shuffle, ThumbsDown, Trash2, X } from "lucide-react";
 import { tracksWord } from "@/lib/plural";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -107,7 +107,7 @@ export default function CollectionPage() {
       <div className="flex flex-col items-center px-4 pt-4 pb-5 text-center">
         {isLiked ? (
           <div className="flex h-40 w-40 items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-200 to-zinc-500 shadow-2xl">
-            {isDisliked ? <ThumbsDown className="h-14 w-14 fill-bg text-bg" /> : <Heart className="h-14 w-14 fill-bg text-bg" />}
+            {isDisliked ? <ThumbsDown className="h-14 w-14 fill-bg text-bg" /> : <ThumbsUp className="h-14 w-14 fill-bg text-bg" />}
           </div>
         ) : (
           <Cover src={tracks[0]?.cover} alt="" className="h-40 w-40 shadow-2xl" rounded="rounded-2xl" />

@@ -119,6 +119,21 @@ export function hiResImage(thumbs: Thumb[] | undefined, size = 544, crop = false
   return url.startsWith("//") ? `https:${url}` : url;
 }
 
+const TYPE_WORDS = /^(song|video|single|ep|album|песня|видео|сингл|альбом|трек|episode|podcast)$/i;
+
+/** "Song • Кино • Группа крови • 4:47" → ["Кино"]. Prefers runs that link to an artist channel. */
+export function artistsFromSubtitle(text: unknown): string[] {
+  const t = text as { runs?: { text?: string; endpoint?: { payload?: { browseId?: string } } }[]; toString(): string } | undefined;
+  if (!t) return [];
+  const linked = (t.runs ?? [])
+    .filter((r) => r.endpoint?.payload?.browseId?.startsWith("UC") && r.text)
+    .map((r) => r.text!.trim());
+  if (linked.length) return [...new Set(linked)];
+  const parts = String(t).split(/\s+[•·]\s+/).map((x) => x.trim()).filter(Boolean);
+  const first = parts.find((x) => !TYPE_WORDS.test(x) && !/^\d+:\d{2}/.test(x) && !/views|просмотр/i.test(x));
+  return first ? [first] : [];
+}
+
 export function fromListItem(
   item: YTNodes.MusicResponsiveListItem,
   fallback?: { cover?: string; album?: string; albumId?: string; artist?: string; artistId?: string },
@@ -126,7 +141,9 @@ export function fromListItem(
   const id = item.id;
   if (!id || (item.item_type !== "song" && item.item_type !== "video")) return null;
   const people = item.artists?.length ? item.artists : item.authors?.length ? item.authors : item.author ? [item.author] : [];
-  const names = people.map((a) => a.name).filter(Boolean);
+  let names = people.map((a) => a.name).filter(Boolean);
+  // Some results (often non-Latin titles) come without parsed artists — read them from the subtitle column.
+  if (!names.length) names = artistsFromSubtitle(item.flex_columns?.[1]?.title);
   const thumbs = item.thumbnails;
   return {
     id,

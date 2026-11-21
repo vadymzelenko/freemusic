@@ -3,7 +3,7 @@
 import {
   Disc3,
   Download,
-  Heart,
+  ThumbsUp,
   ListEnd,
   ListPlus,
   ListStart,
@@ -78,7 +78,7 @@ export function TrackActionsSheet() {
             Запустить радио
           </SheetItem>
           <SheetItem
-            icon={<Heart className={reaction === 1 ? "fill-fg text-fg" : ""} />}
+            icon={<ThumbsUp className={reaction === 1 ? "fill-fg text-fg" : ""} />}
             onClick={run(() => toggleLike(track), reaction === 1 ? "Удалено из любимых" : "Добавлено в любимые")}
           >
             {reaction === 1 ? "Убрать из любимых" : "Нравится"}

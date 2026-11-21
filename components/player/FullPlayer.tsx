@@ -3,8 +3,8 @@
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import {
   ChevronDown,
-  Heart,
   ListMusic,
+  MicVocal,
   MoreHorizontal,
   Loader2,
   Pause,
@@ -13,6 +13,7 @@ import {
   SkipBack,
   SkipForward,
   ThumbsDown,
+  ThumbsUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -20,7 +21,9 @@ import { Cover } from "@/components/ui/Cover";
 import { cn } from "@/lib/cn";
 import { useLibrary } from "@/store/library";
 import { useUI } from "@/store/ui";
+import { copyTrackName, useHoldRepeat, useLongPress } from "@/lib/use-press";
 import { usePlayer } from "./PlayerProvider";
+import { Lyrics } from "./Lyrics";
 import { Scrubber } from "./Scrubber";
 
 export function FullPlayer() {
@@ -44,8 +47,14 @@ export function FullPlayer() {
   const toggleLike = useLibrary((s) => s.toggleLike);
   const toggleDislike = useLibrary((s) => s.toggleDislike);
   const openActions = useUI((s) => s.openActions);
+  const lyricsOpen = useUI((s) => s.lyricsOpen);
+  const setLyricsOpen = useUI((s) => s.setLyricsOpen);
   const toast = useUI((s) => s.showToast);
   const dragControls = useDragControls();
+  const { seekBy } = usePlayer();
+  const copyPress = useLongPress(() => current && copyTrackName(current));
+  const prevPress = useHoldRepeat(prev, () => seekBy(-5));
+  const nextPress = useHoldRepeat(next, () => seekBy(5));
 
   const close = () => setPlayerOpen(false);
 
@@ -131,7 +140,13 @@ export function FullPlayer() {
               </Link>
             </div>
 
-            {/* Artwork */}
+            {/* Lyrics (replaces artwork) */}
+            {lyricsOpen ? (
+              <div className="relative min-h-0 flex-1 py-2">
+                <Lyrics track={current} />
+              </div>
+            ) : (
+            /* Artwork */
             <div
               className="flex flex-1 touch-none items-center justify-center py-4"
               onPointerDown={(e) => dragControls.start(e)}
@@ -160,10 +175,11 @@ export function FullPlayer() {
                 </AnimatePresence>
               </motion.div>
             </div>
+            )}
 
             {/* Title + like */}
             <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1" {...copyPress}>
                 <h2 className="truncate text-[22px] font-semibold leading-tight tracking-tight">{current.title}</h2>
                 {current.artistId ? (
                   <Link
@@ -202,7 +218,7 @@ export function FullPlayer() {
                 aria-label={liked ? "Убрать из любимых" : "Нравится"}
                 aria-pressed={liked}
               >
-                <Heart className={cn("h-5 w-5 transition-colors", liked ? "fill-fg text-fg" : "text-fg/80")} />
+                <ThumbsUp className={cn("h-5 w-5 transition-colors", liked ? "fill-fg text-fg" : "text-fg/80")} />
               </motion.button>
             </div>
 
@@ -222,7 +238,7 @@ export function FullPlayer() {
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.88 }}
-                onClick={prev}
+                {...prevPress}
                 className="flex h-14 w-14 items-center justify-center rounded-full text-fg"
                 aria-label="Предыдущий"
               >
@@ -246,7 +262,7 @@ export function FullPlayer() {
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.88 }}
-                onClick={next}
+                {...nextPress}
                 className="flex h-14 w-14 items-center justify-center rounded-full text-fg"
                 aria-label="Следующий"
               >
@@ -278,6 +294,18 @@ export function FullPlayer() {
                   </span>
                 ) : null}
               </div>
+              <button
+                type="button"
+                onClick={() => setLyricsOpen(!lyricsOpen)}
+                className={cn(
+                  "mr-2 flex h-9 w-9 items-center justify-center rounded-full border transition-colors",
+                  lyricsOpen ? "border-fg bg-fg text-bg" : "border-line text-muted hover:text-fg",
+                )}
+                aria-label="Текст песни"
+                aria-pressed={lyricsOpen}
+              >
+                <MicVocal className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => openActions(current)}

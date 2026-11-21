@@ -17,6 +17,8 @@ export interface LibraryData {
   plays: PlayEvent[];
   searchHistory: string[];
   onboarded: boolean;
+  /** Home sections the user switched off (see HOME_SECTIONS). Synced. */
+  hiddenSections: string[];
   /** Last queue snapshot for session restore. */
   lastQueue: { tracks: Track[]; index: number; radio: boolean };
 }
@@ -33,6 +35,7 @@ interface LibraryState extends LibraryData {
   followArtist: (a: Omit<FollowedArtist, "key" | "addedAt"> & { key?: string }) => void;
   unfollowArtist: (key: string) => void;
   setOnboarded: (v: boolean) => void;
+  toggleSection: (id: string) => void;
   recordPlay: (t: Track, listened: number, completed: boolean) => void;
   clearHistory: () => void;
   pushSearch: (q: string) => void;
@@ -54,8 +57,18 @@ export const EMPTY_LIBRARY: LibraryData = {
   plays: [],
   searchHistory: [],
   onboarded: false,
+  hiddenSections: [],
   lastQueue: { tracks: [], index: 0, radio: true },
 };
+
+export const HOME_SECTIONS: { id: string; title: string; hint: string }[] = [
+  { id: "mixes", title: "Ваши миксы", hint: "Мой микс, Открытия, миксы артистов" },
+  { id: "quick", title: "Быстрый выбор", hint: "Список треков, подобранных для вас" },
+  { id: "because", title: "Потому что вам понравилось", hint: "Ряды похожих на любимые треки" },
+  { id: "artists", title: "Ваши артисты", hint: "Кружки выбранных артистов" },
+  { id: "recent", title: "Недавно слушали", hint: "" },
+  { id: "liked", title: "Любимые треки", hint: "" },
+];
 
 /** Drop cached metadata nothing references any more (keeps localStorage small). */
 function pruneTracks(s: LibraryData): Record<string, Track> {
@@ -158,6 +171,11 @@ export const useLibrary = create<LibraryState>()(
 
       setOnboarded: (v) => set({ onboarded: v }),
 
+      toggleSection: (id) =>
+        set((s) => ({
+          hiddenSections: s.hiddenSections.includes(id) ? s.hiddenSections.filter((x) => x !== id) : [...s.hiddenSections, id],
+        })),
+
       recordPlay: (t, listened, completed) =>
         set((s) => {
           if (listened < 3 && !completed) return s; // accidental taps
@@ -200,6 +218,7 @@ export const useLibrary = create<LibraryState>()(
         plays: s.plays,
         searchHistory: s.searchHistory,
         onboarded: s.onboarded,
+        hiddenSections: s.hiddenSections,
         lastQueue: s.lastQueue,
       }),
       migrate: (persisted, version) => {

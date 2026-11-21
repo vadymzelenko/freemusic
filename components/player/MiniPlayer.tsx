@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Cover } from "@/components/ui/Cover";
+import { copyTrackName, useHoldRepeat, useLongPress } from "@/lib/use-press";
 import { usePlayer, useProgress } from "./PlayerProvider";
 
 function MiniProgress() {
@@ -17,7 +18,10 @@ function MiniProgress() {
 }
 
 export function MiniPlayer() {
-  const { current, isPlaying, isBuffering, error, toggle, next, prev, setPlayerOpen } = usePlayer();
+  const { current, isPlaying, isBuffering, error, toggle, next, prev, seekBy, setPlayerOpen } = usePlayer();
+  const copyPress = useLongPress(() => current && copyTrackName(current));
+  const prevPress = useHoldRepeat(prev, () => seekBy(-5));
+  const nextPress = useHoldRepeat(next, () => seekBy(5));
   const pathname = usePathname();
 
   return (
@@ -35,6 +39,7 @@ export function MiniPlayer() {
             <button
               type="button"
               className="flex min-w-0 flex-1 items-center gap-3 text-left"
+              {...copyPress}
               onClick={() => setPlayerOpen(true)}
               aria-label="Открыть плеер"
             >
@@ -52,7 +57,7 @@ export function MiniPlayer() {
             </button>
             <button
               type="button"
-              onClick={prev}
+              {...prevPress}
               className="flex h-11 w-9 items-center justify-center rounded-full text-fg active:scale-95 active:bg-white/10"
               aria-label="Предыдущий"
             >
@@ -74,7 +79,7 @@ export function MiniPlayer() {
             </button>
             <button
               type="button"
-              onClick={next}
+              {...nextPress}
               className="flex h-11 w-9 items-center justify-center rounded-full text-fg active:scale-95 active:bg-white/10"
               aria-label="Следующий"
             >

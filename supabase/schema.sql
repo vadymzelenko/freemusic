@@ -103,6 +103,22 @@ create policy "own playlist items" on public.playlist_items for all to authentic
   using (exists (select 1 from public.playlists p where p.id = playlist_id and p.user_id = auth.uid()))
   with check (exists (select 1 from public.playlists p where p.id = playlist_id and p.user_id = auth.uid()));
 
+-- v3: UI preferences (hidden home sections etc.)
+alter table public.user_state add column if not exists ui_prefs jsonb not null default '{}'::jsonb;
+
+-- Realtime: changes on one device are pushed to the others instantly.
+do $$
+declare t text;
+begin
+  foreach t in array array['likes', 'playlists', 'playlist_items', 'user_artists', 'user_state'] loop
+    if not exists (
+      select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
 -- Old v1 table (one JSON blob per user). No longer used by the app; data is migrated
 -- automatically from the device on first sign-in. You can drop it later:
 --   drop table if exists public.user_library;
