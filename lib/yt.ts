@@ -1,5 +1,5 @@
 import "server-only";
-import { Innertube, Platform, ProtoUtils, UniversalCache, YTNodes } from "youtubei.js";
+import { Innertube, Misc, Platform, ProtoUtils, UniversalCache, YTNodes } from "youtubei.js";
 import type { Types } from "youtubei.js";
 import { TTLCache } from "./ttl-cache";
 import type { Track } from "./types";
@@ -23,35 +23,53 @@ Platform.shim.eval = (data: Types.BuildScriptResult, env: Record<string, Types.V
 const SESSION_TTL_MS = 6 * 60 * 60 * 1000; // player JS rotates — refresh periodically
 
 type GlobalYT = { promise: Promise<Innertube>; createdAt: number } | undefined;
-const g = globalThis as unknown as { __yt?: GlobalYT };
+const g = globalThis as unknown as { __yt?: GlobalYT; __ytBrowse?: GlobalYT };
 
 export function hasVisitorIdInCookie(): boolean {
   return /(?:^|;\s*)VISITOR_INFO1_LIVE=/.test(process.env.YT_COOKIE ?? "");
 }
 
-export function getYT(): Promise<Innertube> {
+function createInnertube(withPlayer: boolean): Promise<Innertube> {
+  const cookie = process.env.YT_COOKIE?.trim() || undefined;
+  const visitorId = cookie ? /(?:^|;\s*)VISITOR_INFO1_LIVE=([^;]+)/.exec(cookie)?.[1] : undefined;
+  return Innertube.create({
+    cookie,
+    // The visitor id must match the logged-in cookie, otherwise YouTube answers
+    // "UNPLAYABLE: The page needs to be reloaded".
+    visitor_data: visitorId ? ProtoUtils.encodeVisitorData(visitorId, Math.floor(Date.now() / 1000)) : undefined,
+    // Downloading + parsing the player JS is the slowest part of a cold start; only streams need it.
+    retrieve_player: withPlayer,
+    generate_session_locally: !cookie,
+    enable_session_cache: false,
+    cache: new UniversalCache(false),
+    lang: "en",
+    location: process.env.YT_LOCATION || "US",
+  });
+}
+
+function memo(key: "__yt" | "__ytBrowse", withPlayer: boolean): Promise<Innertube> {
   const now = Date.now();
-  if (!g.__yt || now - g.__yt.createdAt > SESSION_TTL_MS) {
-    const cookie = process.env.YT_COOKIE?.trim() || undefined;
-    const visitorId = cookie ? /(?:^|;\s*)VISITOR_INFO1_LIVE=([^;]+)/.exec(cookie)?.[1] : undefined;
-    const promise = Innertube.create({
-      cookie,
-      // The visitor id must match the logged-in cookie, otherwise YouTube answers
-      // "UNPLAYABLE: The page needs to be reloaded".
-      visitor_data: visitorId ? ProtoUtils.encodeVisitorData(visitorId, Math.floor(Date.now() / 1000)) : undefined,
-      retrieve_player: true,
-      generate_session_locally: !cookie,
-      enable_session_cache: false,
-      cache: new UniversalCache(false),
-      lang: "en",
-      location: process.env.YT_LOCATION || "US",
-    }).catch((err: unknown) => {
-      g.__yt = undefined; // don't memoize failures
+  const cur = g[key];
+  if (!cur || now - cur.createdAt > SESSION_TTL_MS) {
+    const promise = createInnertube(withPlayer).catch((err: unknown) => {
+      g[key] = undefined; // don't memoize failures
       throw err;
     });
-    g.__yt = { promise, createdAt: now };
+    g[key] = { promise, createdAt: now };
   }
-  return g.__yt.promise;
+  return g[key]!.promise;
+}
+
+/** Full client (with player JS) — needed to decipher stream URLs. */
+export function getYT(): Promise<Innertube> {
+  return memo("__yt", true);
+}
+
+/** Light client for search / browse / radio — no player download, much faster cold start. */
+export function getYTBrowse(): Promise<Innertube> {
+  // If the full client is already up, reuse it.
+  if (g.__yt && Date.now() - g.__yt.createdAt <= SESSION_TTL_MS) return g.__yt.promise;
+  return memo("__ytBrowse", false);
 }
 
 /* ------------------------------------------------------------------ */
@@ -159,7 +177,7 @@ export async function relatedTracks(id: string): Promise<Track[]> {
   const hit = relatedCache.get(id);
   if (hit) return hit;
 
-  const yt = await getYT();
+  const yt = await getYTBrowse();
   const panel = await yt.music.getUpNext(id, true);
   const items: (Track | null)[] = [];
   for (const node of panel.contents) {
@@ -183,6 +201,8 @@ export interface AudioSource {
   mimeType: string;
   contentLength?: number;
   bitrate?: number;
+  itag?: number;
+  durationMs?: number;
   client: string;
   resolvedAt: number;
 }
@@ -225,53 +245,97 @@ async function probe(url: string): Promise<void> {
   if (!res.ok) throw new Error(`googlevideo ${res.status}`);
 }
 
-export async function resolveWithClient(id: string, client: Types.InnerTubeClient): Promise<AudioSource> {
+type Fmt = Misc.Format;
+
+/**
+ * Picks the audio format Safari handles best:
+ *  - AAC in MP4 only (no webm/opus)
+ *  - prefer itag 140 (AAC-LC 128k). HE-AAC (mp4a.40.5 / 40.29, itag 139) uses SBR and makes
+ *    Safari report DOUBLE the real duration (silence at the end).
+ *  - avoid DRC ("stable volume") and dubbed tracks
+ */
+function pickAudioFormat(formats: Fmt[]): Fmt | undefined {
+  const audio = formats.filter((f) => f.has_audio && !f.has_video && f.mime_type.startsWith("audio/mp4"));
+  const score = (f: Fmt) =>
+    (f.itag === 140 ? 1000 : 0) +
+    (/mp4a\.40\.(5|29)/.test(f.mime_type) ? -800 : 0) +
+    (f.is_drc ? -300 : 0) +
+    (f.is_dubbed ? -200 : 0) +
+    (f.is_original === false ? -100 : 0) +
+    Math.min(f.bitrate ?? 0, 200_000) / 1000;
+  return audio.sort((a, b) => score(b) - score(a))[0];
+}
+
+export async function resolveWithClient(
+  id: string,
+  client: Types.InnerTubeClient,
+  verify = true,
+): Promise<AudioSource> {
   const yt = await getYT();
   const info = await yt.getBasicInfo(id, { client });
   const status = info.playability_status?.status;
   if (status && status !== "OK") {
     throw new Error(`${client}: ${status} ${info.playability_status?.reason ?? ""}`.trim());
   }
-  // Safari only plays AAC in MP4 reliably — never pick webm/opus.
-  const format = info.chooseFormat({ type: "audio", quality: "best", format: "mp4" });
+  const formats = [...(info.streaming_data?.adaptive_formats ?? []), ...(info.streaming_data?.formats ?? [])] as Fmt[];
+  const format = pickAudioFormat(formats) ?? info.chooseFormat({ type: "audio", quality: "best", format: "mp4" });
   const url = await format.decipher(yt.session.player);
   if (!url) throw new Error(`${client}: empty url`);
-  try {
-    await probe(url);
-  } catch (e) {
-    throw new Error(`${client}: ${e instanceof Error ? e.message : String(e)}`);
+  if (verify) {
+    try {
+      await probe(url);
+    } catch (e) {
+      throw new Error(`${client}: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
   return {
     url,
     mimeType: (format.mime_type || "audio/mp4").split(";")[0] ?? "audio/mp4",
     contentLength: format.content_length || undefined,
     bitrate: format.bitrate,
+    itag: format.itag,
+    durationMs: format.approx_duration_ms || undefined,
     client,
     resolvedAt: Date.now(),
   };
 }
 
-async function resolveAudio(id: string): Promise<AudioSource> {
+/** Last client that worked — tried first next time (saves failed round-trips). */
+let preferredClient: Types.InnerTubeClient | null = null;
+
+async function resolveAudio(id: string, verify: boolean, avoid?: string): Promise<AudioSource> {
   const errors: string[] = [];
-  for (const client of clientOrder()) {
+  const order = clientOrder();
+  const clients = preferredClient && preferredClient !== avoid
+    ? [preferredClient, ...order.filter((c) => c !== preferredClient)]
+    : order.filter((c) => c !== avoid).concat(avoid ? [avoid as Types.InnerTubeClient] : []);
+  for (const [i, client] of clients.entries()) {
     try {
-      return await resolveWithClient(id, client);
+      // The preferred client is trusted without a probe (fast path); the stream route
+      // re-resolves with verification if googlevideo refuses the URL.
+      const src = await resolveWithClient(id, client, verify || i > 0);
+      preferredClient = client;
+      return src;
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));
+      if (client === preferredClient) preferredClient = null;
     }
   }
   throw new Error(`Could not resolve audio for ${id}: ${errors.join(" | ")}`);
 }
 
 /** Returns a cached direct googlevideo URL, resolving (once, deduplicated) if needed. */
-export async function getAudioSource(id: string, opts: { fresh?: boolean } = {}): Promise<AudioSource> {
+export async function getAudioSource(
+  id: string,
+  opts: { fresh?: boolean; verify?: boolean; avoid?: string } = {},
+): Promise<AudioSource> {
   if (opts.fresh) audioCache.delete(id);
   const hit = audioCache.get(id);
   if (hit) return hit;
 
   let p = inflight.get(id);
   if (!p) {
-    p = resolveAudio(id)
+    p = resolveAudio(id, !!opts.verify, opts.avoid)
       .then((src) => {
         audioCache.set(id, src);
         return src;

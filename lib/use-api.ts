@@ -35,7 +35,14 @@ export function peekJSON<T>(path: string): T | undefined {
   return cache.get(path)?.data as T | undefined;
 }
 
-export function useApi<T>(path: string | null): { data: T | undefined; error: string | null; loading: boolean } {
+/**
+ * `keep: true` keeps showing the previous result while a new path loads (e.g. search-as-you-type)
+ * instead of flashing back to a skeleton.
+ */
+export function useApi<T>(
+  path: string | null,
+  opts: { keep?: boolean } = {},
+): { data: T | undefined; error: string | null; loading: boolean; stale: boolean } {
   const [state, setState] = useState<{ path: string | null; data: T | undefined; error: string | null }>(() => ({
     path,
     data: path ? peekJSON<T>(path) : undefined,
@@ -45,7 +52,7 @@ export function useApi<T>(path: string | null): { data: T | undefined; error: st
   useEffect(() => {
     if (!path) return;
     const cached = peekJSON<T>(path);
-    setState({ path, data: cached, error: null });
+    if (cached !== undefined || !opts.keep) setState({ path, data: cached, error: null });
     const ctrl = new AbortController();
     getJSON<T>(path, ctrl.signal)
       .then((data) => setState({ path, data, error: null }))
@@ -54,12 +61,16 @@ export function useApi<T>(path: string | null): { data: T | undefined; error: st
         setState({ path, data: cached, error: e instanceof Error ? e.message : String(e) });
       });
     return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
   const current = state.path === path;
+  const fresh = current ? state.data : path ? peekJSON<T>(path) : undefined;
+  const data = fresh ?? (opts.keep && path ? state.data : undefined);
   return {
-    data: current ? state.data : path ? peekJSON<T>(path) : undefined,
+    data,
     error: current ? state.error : null,
     loading: !!path && (!current || (state.data === undefined && state.error === null)),
+    stale: !!opts.keep && !current && data !== undefined,
   };
 }

@@ -74,9 +74,9 @@ export function AccountCard() {
             </>
           )}
           {status === "error" && (
-            <span className="flex min-w-0 items-center gap-1 text-red-400">
+            <span className="flex min-w-0 items-start gap-1 text-red-400">
               <AlertCircle className="h-3 w-3 shrink-0" />
-              <span className="truncate">{error ?? "Ошибка синхронизации"}</span>
+              <span className="line-clamp-2">{error ?? "Ошибка синхронизации"}</span>
             </span>
           )}
           {status === "off" && "Облако"}

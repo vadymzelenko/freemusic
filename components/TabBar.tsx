@@ -1,15 +1,14 @@
 "use client";
 
-import { House, Library, ListMusic, Search } from "lucide-react";
+import { House, Library, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
 const TABS = [
   { href: "/", label: "Главная", icon: House, match: (p: string) => p === "/" || p.startsWith("/artist") || p.startsWith("/album") },
-  { href: "/search", label: "Поиск", icon: Search, match: (p: string) => p.startsWith("/search") },
+  { href: "/search", label: "Поиск", icon: Search, match: (p: string) => p.startsWith("/search") || p.startsWith("/queue") },
   { href: "/library", label: "Медиатека", icon: Library, match: (p: string) => p.startsWith("/library") || p.startsWith("/settings") },
-  { href: "/queue", label: "Очередь", icon: ListMusic, match: (p: string) => p.startsWith("/queue") },
 ] as const;
 
 export function TabBar() {

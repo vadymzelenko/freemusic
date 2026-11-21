@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Pause, Play, SkipForward } from "lucide-react";
+import { Loader2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Cover } from "@/components/ui/Cover";
 import { usePlayer, useProgress } from "./PlayerProvider";
@@ -17,7 +17,7 @@ function MiniProgress() {
 }
 
 export function MiniPlayer() {
-  const { current, isPlaying, isBuffering, error, toggle, next, setPlayerOpen } = usePlayer();
+  const { current, isPlaying, isBuffering, error, toggle, next, prev, setPlayerOpen } = usePlayer();
   const pathname = usePathname();
 
   return (
@@ -52,6 +52,14 @@ export function MiniPlayer() {
             </button>
             <button
               type="button"
+              onClick={prev}
+              className="flex h-11 w-9 items-center justify-center rounded-full text-fg active:scale-95 active:bg-white/10"
+              aria-label="Предыдущий"
+            >
+              <SkipBack className="h-[18px] w-[18px] fill-current" />
+            </button>
+            <button
+              type="button"
               onClick={toggle}
               className="flex h-11 w-11 items-center justify-center rounded-full text-fg active:scale-95 active:bg-white/10"
               aria-label={isPlaying ? "Пауза" : "Играть"}
@@ -67,7 +75,7 @@ export function MiniPlayer() {
             <button
               type="button"
               onClick={next}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-fg active:scale-95 active:bg-white/10"
+              className="flex h-11 w-9 items-center justify-center rounded-full text-fg active:scale-95 active:bg-white/10"
               aria-label="Следующий"
             >
               <SkipForward className="h-5 w-5 fill-current" />
