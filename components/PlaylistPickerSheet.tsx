@@ -68,7 +68,7 @@ export function PlaylistPickerSheet() {
                     toast(`Добавлено в «${p.name}»`);
                     onClose();
                   }}
-                  className="flex w-full items-center gap-4 px-5 py-3 text-left active:bg-white/[0.05] disabled:opacity-50 md:hover:bg-white/[0.03]"
+                  className="flex w-full items-center gap-4 px-5 py-3 text-left active:bg-fg/[0.05] disabled:opacity-50 md:hover:bg-fg/[0.03]"
                 >
                   <span className="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-bg text-muted">
                     <ListMusic className="h-5 w-5" />

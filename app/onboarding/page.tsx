@@ -45,7 +45,7 @@ function ArtistTile({ artist, selected, onToggle }: { artist: ArtistSummary; sel
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+    <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
       {Array.from({ length: 9 }, (_, i) => (
         <div key={i}>
           <div className="skeleton mx-auto aspect-square w-full max-w-[112px] rounded-full" />
@@ -162,7 +162,7 @@ export default function OnboardingPage() {
       <div className="px-4">
         {q ? (
           found.data ? (
-            <div className="grid grid-cols-3 gap-x-3 gap-y-5 pt-2 sm:grid-cols-4">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-5 pt-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
               {found.data.artists.slice(0, 12).map((a) => (
                 <ArtistTile key={a.id} artist={a} selected={selected.has(artistKey(a.name))} onToggle={() => toggle(a)} />
               ))}
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
             {relatedVisible.length > 0 && (
               <section className="mb-8">
                 <h2 className="mb-3 text-[17px] font-semibold">Вам может понравиться</h2>
-                <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+                <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
                   {relatedVisible.slice(0, 9).map((a) => (
                     <ArtistTile key={a.id} artist={a} selected={false} onToggle={() => toggle(a)} />
                   ))}
@@ -190,7 +190,7 @@ export default function OnboardingPage() {
             {popular.data?.genres.map((g) => (
               <section key={g.genre} className="mb-8">
                 <h2 className="mb-3 text-[17px] font-semibold">{g.genre}</h2>
-                <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+                <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
                   {g.artists.map((a) => (
                     <ArtistTile key={a.id} artist={a} selected={selected.has(artistKey(a.name))} onToggle={() => toggle(a)} />
                   ))}
@@ -202,8 +202,8 @@ export default function OnboardingPage() {
       </div>
 
       <div
-        className="fixed inset-x-0 z-[45] px-4"
-        style={{ bottom: "calc(var(--tabbar-h) + var(--safe-bottom) + 10px)" }}
+        className="fixed right-0 z-[45] px-4 md:!bottom-[calc(var(--mini-h)+16px)]"
+        style={{ left: "var(--sidebar-w)", bottom: "calc(var(--tabbar-h) + var(--safe-bottom) + 10px)" }}
       >
         <button
           type="button"

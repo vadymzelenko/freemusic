@@ -8,8 +8,9 @@
  * - /api/*               → never touched (live streaming stays on the network path)
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const AUDIO_CACHE = "freemusic-audio-v1";
+const RECENT_CACHE = "freemusic-recent-v1";
 const COVER_CACHE = "freemusic-covers-v1";
 const SHELL_CACHE = `freemusic-shell-${VERSION}`;
 const STATIC_CACHE = `freemusic-static-${VERSION}`;
@@ -25,7 +26,7 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  const keep = new Set([AUDIO_CACHE, COVER_CACHE, SHELL_CACHE, STATIC_CACHE]);
+  const keep = new Set([AUDIO_CACHE, RECENT_CACHE, COVER_CACHE, SHELL_CACHE, STATIC_CACHE]);
   event.waitUntil(
     caches
       .keys()
@@ -54,8 +55,9 @@ function parseRange(header, size) {
 async function serveOfflineAudio(request) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
-  const cache = await caches.open(AUDIO_CACHE);
-  const cached = await cache.match(`/offline/audio?id=${encodeURIComponent(id)}`);
+  const k = `/offline/audio?id=${encodeURIComponent(id)}`;
+  // user downloads first, then the short-term buffer (prefetched next / recently played)
+  const cached = (await (await caches.open(AUDIO_CACHE)).match(k)) || (await (await caches.open(RECENT_CACHE)).match(k));
   if (!cached) {
     // Evicted or never stored — stream it instead.
     const headers = new Headers();

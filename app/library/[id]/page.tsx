@@ -70,7 +70,7 @@ export default function CollectionPage() {
       <div className="flex items-center justify-between px-2 pt-3">
         <Link
           href="/library"
-          className="flex h-10 items-center gap-0.5 rounded-full pr-3 text-[15px] text-muted active:bg-white/10"
+          className="flex h-10 items-center gap-0.5 rounded-full pr-3 text-[15px] text-muted active:bg-fg/10"
         >
           <ChevronLeft className="h-5 w-5" /> Медиатека
         </Link>
@@ -82,7 +82,7 @@ export default function CollectionPage() {
                 setName(playlist.name);
                 setEditing(true);
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-muted active:bg-white/10"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-muted active:bg-fg/10"
               aria-label="Переименовать"
             >
               <Pencil className="h-4 w-4" />
@@ -95,7 +95,7 @@ export default function CollectionPage() {
                   router.replace("/library");
                 }
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-muted active:bg-white/10"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-muted active:bg-fg/10"
               aria-label="Удалить плейлист"
             >
               <Trash2 className="h-4 w-4" />
@@ -104,17 +104,17 @@ export default function CollectionPage() {
         )}
       </div>
 
-      <div className="flex flex-col items-center px-4 pt-4 pb-5 text-center">
+      <div className="flex flex-col items-center px-4 pt-3 pb-5 text-center md:grid md:grid-cols-[auto_1fr] md:items-end md:justify-items-start md:gap-x-8 md:px-0 md:pt-6 md:pb-8 md:text-left md:[&>*:first-child]:row-span-6 md:[&>*:not(:first-child)]:col-start-2">
         {isLiked ? (
-          <div className="flex h-40 w-40 items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-200 to-zinc-500 shadow-2xl">
+          <div className="flex h-40 w-40 lg:h-56 lg:w-56 items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-200 to-zinc-500 shadow-2xl">
             {isDisliked ? <ThumbsDown className="h-14 w-14 fill-bg text-bg" /> : <ThumbsUp className="h-14 w-14 fill-bg text-bg" />}
           </div>
         ) : (
-          <Cover src={tracks[0]?.cover} alt="" className="h-40 w-40 shadow-2xl" rounded="rounded-2xl" />
+          <Cover src={tracks[0]?.cover} alt="" className="h-40 w-40 shadow-2xl lg:h-56 lg:w-56" rounded="rounded-2xl" />
         )}
-        <h1 className="mt-4 text-[22px] font-bold tracking-tight">{title}</h1>
+        <h1 className="mt-4 text-[22px] md:mt-0 md:text-[34px] md:leading-tight font-bold tracking-tight">{title}</h1>
         <p className="mt-0.5 text-[13px] text-muted">{hydrated ? `${tracksWord(tracks.length)}` : " "}</p>
-        <div className="mt-4 flex w-full max-w-xs gap-2">
+        <div className="mt-4 flex w-full max-w-xs gap-2 md:max-w-md">
           <button
             type="button"
             disabled={!tracks.length}
@@ -127,7 +127,7 @@ export default function CollectionPage() {
             type="button"
             disabled={!tracks.length}
             onClick={() => playAll(true)}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-card text-[15px] font-semibold active:bg-white/10 disabled:opacity-30"
+            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-card text-[15px] font-semibold active:bg-fg/10 disabled:opacity-30"
           >
             <Shuffle className="h-4 w-4" /> Перемешать
           </button>
@@ -162,7 +162,7 @@ export default function CollectionPage() {
                   onClick={() =>
                     isDisliked ? toggleDislike(t) : isLiked ? toggleLike(t) : playlist && removeFromPlaylist(playlist.id, t.id)
                   }
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-white/10"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-fg/10"
                   aria-label="Удалить"
                 >
                   <X className="h-4 w-4" />

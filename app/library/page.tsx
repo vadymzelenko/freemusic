@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Download, ThumbsUp, ListMusic, Plus, Settings, UsersRound } from "lucide-react";
+import { BarChart3, ChevronRight, Download, ThumbsUp, ListMusic, Plus, Settings, UsersRound } from "lucide-react";
 import { tracksWord } from "@/lib/plural";
 import { useDownloads } from "@/store/downloads";
 import Link from "next/link";
@@ -45,8 +45,15 @@ export default function LibraryPage() {
       <PageHeader title="Медиатека">
         <div className="flex gap-2">
         <Link
+          href="/stats"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-fg/10"
+          aria-label="Статистика"
+        >
+          <BarChart3 className="h-4 w-4" />
+        </Link>
+        <Link
           href="/settings"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-white/10"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-fg/10"
           aria-label="Настройки"
         >
           <Settings className="h-4 w-4" />
@@ -54,7 +61,7 @@ export default function LibraryPage() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="flex h-9 items-center gap-1.5 rounded-full border border-line bg-card px-3 text-[13px] font-medium text-fg/90 active:bg-white/10"
+          className="flex h-9 items-center gap-1.5 rounded-full border border-line bg-card px-3 text-[13px] font-medium text-fg/90 active:bg-fg/10"
         >
           <Plus className="h-4 w-4" /> Плейлист
         </button>
@@ -66,7 +73,7 @@ export default function LibraryPage() {
       <div className="space-y-1 px-2 pt-3">
         <Link
           href="/library/liked"
-          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-zinc-200 to-zinc-500">
             <ThumbsUp className="h-6 w-6 fill-bg text-bg" />
@@ -80,10 +87,10 @@ export default function LibraryPage() {
 
         <Link
           href="/library/downloads"
-          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-line bg-gradient-to-br from-zinc-700 to-zinc-900">
-            <Download className="h-6 w-6 text-fg" />
+            <Download className="h-6 w-6 text-white" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-medium">Скачанное</div>
@@ -94,7 +101,7 @@ export default function LibraryPage() {
 
         <Link
           href="/onboarding"
-          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+          className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-line bg-card">
             <UsersRound className="h-6 w-6 text-muted" />
@@ -121,7 +128,7 @@ export default function LibraryPage() {
             <Link
               key={p.id}
               href={`/library/${p.id}`}
-              className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+              className="flex items-center gap-4 rounded-xl px-2 py-2 active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
             >
               <Mosaic covers={p.trackIds.map((id) => tracks[id]?.cover).filter((c): c is string => !!c)} />
               <div className="min-w-0 flex-1">

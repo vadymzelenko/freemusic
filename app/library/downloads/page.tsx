@@ -34,16 +34,16 @@ export default function DownloadsPage() {
       <div className="px-2 pt-3">
         <BackButton label="Медиатека" />
       </div>
-      <div className="flex flex-col items-center px-4 pt-4 pb-5 text-center">
-        <div className="flex h-40 w-40 items-center justify-center rounded-2xl border border-line bg-gradient-to-br from-zinc-700 to-zinc-900 shadow-2xl">
-          <Download className="h-14 w-14 text-fg" />
+      <div className="flex flex-col items-center px-4 pt-3 pb-5 text-center md:grid md:grid-cols-[auto_1fr] md:items-end md:justify-items-start md:gap-x-8 md:px-0 md:pt-6 md:pb-8 md:text-left md:[&>*:first-child]:row-span-6 md:[&>*:not(:first-child)]:col-start-2">
+        <div className="flex h-40 w-40 lg:h-56 lg:w-56 items-center justify-center rounded-2xl border border-line bg-gradient-to-br from-zinc-700 to-zinc-900 shadow-2xl">
+          <Download className="h-14 w-14 text-white" />
         </div>
-        <h1 className="mt-4 text-[22px] font-bold tracking-tight">Скачанное</h1>
+        <h1 className="mt-4 text-[22px] md:mt-0 md:text-[34px] md:leading-tight font-bold tracking-tight">Скачанное</h1>
         <p className="mt-0.5 text-[13px] text-muted">
           {tracksWord(tracks.length)} · {Math.round(bytes / 1e6)} МБ · доступно без интернета
         </p>
         {pending > 0 && <p className="mt-1 text-[12.5px] text-subtle">Скачивается: {pending}</p>}
-        <div className="mt-4 flex w-full max-w-xs gap-2">
+        <div className="mt-4 flex w-full max-w-xs gap-2 md:max-w-md">
           <button
             type="button"
             disabled={!tracks.length}
@@ -87,7 +87,7 @@ export default function DownloadsPage() {
                 <button
                   type="button"
                   onClick={() => void removeDownload(t.id)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-white/10"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-fg/10"
                   aria-label="Удалить загрузку"
                 >
                   <Trash2 className="h-4 w-4" />

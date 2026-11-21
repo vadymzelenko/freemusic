@@ -9,9 +9,13 @@ import { cn } from "@/lib/cn";
 import type { AlbumSummary, ArtistSummary, Track } from "@/lib/types";
 import { useUI } from "@/store/ui";
 
-export function AlbumCard({ album, width = 148, fluid }: { album: AlbumSummary; width?: number; fluid?: boolean }) {
+export function AlbumCard({ album, width, fluid }: { album: AlbumSummary; width?: number; fluid?: boolean }) {
   return (
-    <Link href={`/album/${album.id}`} className="min-w-0 shrink-0 snap-start" style={fluid ? undefined : { width }}>
+    <Link
+      href={`/album/${album.id}`}
+      className={`min-w-0 shrink-0 snap-start ${fluid || width ? "" : "w-[148px] md:w-[176px]"}`}
+      style={!fluid && width ? { width } : undefined}
+    >
       <Cover src={album.cover} alt="" className="aspect-square w-full" rounded="rounded-lg" />
       <div className="mt-2 truncate text-[14px] font-medium">{album.title}</div>
       <div className="truncate text-[12.5px] text-muted">
@@ -33,12 +37,12 @@ export function ArtistCircle({ artist, width = 120 }: { artist: ArtistSummary; w
 }
 
 /** Square track card for horizontal shelves. Tap = play the whole row from here. */
-export function TrackCard({ track, onPlay, width = 148 }: { track: Track; onPlay: () => void; width?: number }) {
+export function TrackCard({ track, onPlay, width }: { track: Track; onPlay: () => void; width?: number }) {
   const { current, isPlaying } = usePlayer();
   const openActions = useUI((s) => s.openActions);
   const active = current?.id === track.id;
   return (
-    <div className="shrink-0 snap-start" style={{ width }}>
+    <div className={`shrink-0 snap-start ${width ? "" : "w-[148px] md:w-[176px]"}`} style={width ? { width } : undefined}>
       <button
         type="button"
         onClick={onPlay}
@@ -56,7 +60,7 @@ export function TrackCard({ track, onPlay, width = 148 }: { track: Track; onPlay
             active ? "opacity-100" : "opacity-0 group-hover:opacity-100",
           )}
         >
-          {active ? <Equalizer playing={isPlaying} /> : <Play className="h-8 w-8 fill-fg text-fg" />}
+          {active ? <Equalizer playing={isPlaying} /> : <Play className="h-8 w-8 fill-white text-white" />}
         </div>
       </button>
       <button type="button" onClick={() => openActions(track)} className="block w-full text-left">
@@ -73,7 +77,7 @@ export function MixCard({
   subtitle,
   covers,
   onPlay,
-  width = 160,
+  width,
 }: {
   title: string;
   subtitle: string;
@@ -83,7 +87,12 @@ export function MixCard({
 }) {
   const c = covers.filter(Boolean);
   return (
-    <button type="button" onClick={onPlay} className="group shrink-0 snap-start text-left" style={{ width }}>
+    <button
+      type="button"
+      onClick={onPlay}
+      className={`group shrink-0 snap-start text-left ${width ? "" : "w-[160px] md:w-[196px]"}`}
+      style={width ? { width } : undefined}
+    >
       <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-line bg-card">
         {c.length >= 4 ? (
           <div className="grid h-full w-full grid-cols-2">
@@ -96,7 +105,7 @@ export function MixCard({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
         <div className="absolute inset-x-3 bottom-2.5">
-          <div className="text-[15px] font-bold leading-tight">{title}</div>
+          <div className="text-[15px] font-bold leading-tight text-white">{title}</div>
         </div>
         <div className="absolute right-2.5 top-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-fg text-bg opacity-90 shadow-lg transition-transform group-active:scale-90">
           <Play className="ml-0.5 h-4 w-4 fill-current" />

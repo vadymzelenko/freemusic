@@ -74,7 +74,7 @@ export default function QueuePage() {
                     <button
                       type="button"
                       onClick={() => removeFromQueue(i)}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-white/10"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg active:bg-fg/10"
                       aria-label="Убрать из очереди"
                     >
                       <X className="h-4 w-4" />

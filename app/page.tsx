@@ -252,14 +252,14 @@ export default function HomePage() {
             type="button"
             onClick={build}
             disabled={busy}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-white/10 disabled:opacity-60"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-fg/10 disabled:opacity-60"
             aria-label="Обновить подборку"
           >
             <RefreshCw className={`h-[17px] w-[17px] ${busy ? "animate-spin" : ""}`} />
           </button>
           <Link
             href="/settings"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-white/10"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-muted active:bg-fg/10"
             aria-label="Настройки"
           >
             <Settings className="h-[18px] w-[18px]" />
@@ -341,9 +341,11 @@ export default function HomePage() {
               </button>
             )}
           </div>
-          {quickPicks.slice(0, visible).map((t, i) => (
-            <TrackRow key={t.id} track={t} onPlay={() => startMix(quickPicks, i)} />
-          ))}
+          <div className="lg:grid lg:grid-cols-2 lg:gap-x-4">
+            {quickPicks.slice(0, visible).map((t, i) => (
+              <TrackRow key={t.id} track={t} onPlay={() => startMix(quickPicks, i)} />
+            ))}
+          </div>
           {quickPicks.length === 0 && busy && (
             <>
               <TrackRowSkeleton />
@@ -352,11 +354,11 @@ export default function HomePage() {
             </>
           )}
           {(visible < quickPicks.length || canLoadMore) && quickPicks.length > 0 && (
-            <div className="px-4 pt-2">
+            <div className="px-4 pt-2 lg:max-w-sm">
               <button
                 type="button"
                 onClick={showMore}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-line bg-card text-[14px] font-medium text-fg/90 active:bg-white/10"
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-line bg-card text-[14px] font-medium text-fg/90 active:bg-fg/10"
               >
                 {busy && visible >= quickPicks.length ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

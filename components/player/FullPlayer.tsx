@@ -110,7 +110,12 @@ export function FullPlayer() {
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-bg/70 to-bg" />
           </div>
 
-          <div className="relative mx-auto flex h-full w-full max-w-md flex-col px-6 pt-safe pb-safe">
+          <div className="relative mx-auto flex h-full w-full max-w-md flex-col px-6 pt-safe pb-safe lg:max-w-6xl lg:flex-row lg:items-center lg:gap-16 lg:px-12">
+          {/* desktop: lyrics column on the right */}
+          <div className="order-2 hidden h-[72vh] min-w-0 flex-1 lg:block">
+            <Lyrics track={current} />
+          </div>
+          <div className="order-1 flex h-full w-full flex-col lg:h-auto lg:max-h-full lg:w-[420px] lg:shrink-0">
             {/* Header — drag handle area */}
             <div
               className="flex touch-none items-center justify-between pt-3 pb-2"
@@ -119,7 +124,7 @@ export function FullPlayer() {
               <button
                 type="button"
                 onClick={close}
-                className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-fg/90 active:bg-white/10"
+                className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-fg/90 active:bg-fg/10"
                 aria-label="Свернуть"
               >
                 <ChevronDown className="h-6 w-6" />
@@ -133,7 +138,7 @@ export function FullPlayer() {
               <Link
                 href="/queue"
                 onClick={close}
-                className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-fg/90 active:bg-white/10"
+                className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-fg/90 active:bg-fg/10"
                 aria-label="Очередь"
               >
                 <ListMusic className="h-5 w-5" />
@@ -141,18 +146,22 @@ export function FullPlayer() {
             </div>
 
             {/* Lyrics (replaces artwork) */}
-            {lyricsOpen ? (
-              <div className="relative min-h-0 flex-1 py-2">
+            {lyricsOpen && (
+              <div className="relative min-h-0 flex-1 py-2 lg:hidden">
                 <Lyrics track={current} />
               </div>
-            ) : (
+            )}
+            {(
             /* Artwork */
             <div
-              className="flex flex-1 touch-none items-center justify-center py-4"
+              className={cn(
+                "flex flex-1 touch-none items-center justify-center py-4 lg:flex-none lg:py-8",
+                lyricsOpen && "hidden lg:flex",
+              )}
               onPointerDown={(e) => dragControls.start(e)}
             >
               <motion.div
-                className="relative aspect-square w-full max-w-[min(100%,46dvh)]"
+                className="relative aspect-square w-full max-w-[min(100%,46dvh)] lg:max-w-[420px]"
                 animate={{ scale: isPlaying ? 1 : 0.86 }}
                 transition={{ type: "spring", damping: 22, stiffness: 220 }}
               >
@@ -204,7 +213,7 @@ export function FullPlayer() {
                     next();
                   }
                 }}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white/[0.04]"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-fg/[0.04]"
                 aria-label={disliked ? "Убрать дизлайк" : "Не нравится"}
                 aria-pressed={disliked}
               >
@@ -214,7 +223,7 @@ export function FullPlayer() {
                 type="button"
                 whileTap={{ scale: 0.85 }}
                 onClick={() => toggleLike(current)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white/[0.04]"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-fg/[0.04]"
                 aria-label={liked ? "Убрать из любимых" : "Нравится"}
                 aria-pressed={liked}
               >
@@ -298,7 +307,7 @@ export function FullPlayer() {
                 type="button"
                 onClick={() => setLyricsOpen(!lyricsOpen)}
                 className={cn(
-                  "mr-2 flex h-9 w-9 items-center justify-center rounded-full border transition-colors",
+                  "mr-2 flex h-9 w-9 items-center justify-center rounded-full border transition-colors lg:hidden",
                   lyricsOpen ? "border-fg bg-fg text-bg" : "border-line text-muted hover:text-fg",
                 )}
                 aria-label="Текст песни"
@@ -315,6 +324,7 @@ export function FullPlayer() {
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             </div>
+          </div>
           </div>
         </motion.div>
       )}

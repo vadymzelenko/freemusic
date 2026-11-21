@@ -5,7 +5,11 @@ import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { usePlayer, useProgress } from "./PlayerProvider";
 
-export function Scrubber() {
+/**
+ * compact: times on the left/right of the bar (desktop player bar)
+ * hideTimes: just the bar (tablet top edge)
+ */
+export function Scrubber({ compact = false, hideTimes = false }: { compact?: boolean; hideTimes?: boolean } = {}) {
   const { seek } = usePlayer();
   const { time, duration, buffered } = useProgress();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -23,8 +27,18 @@ export function Scrubber() {
     return Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * d;
   };
 
+  const times = (
+    <>
+      <span>{formatTime(shown)}</span>
+      <span>-{formatTime(Math.max(0, d - shown))}</span>
+    </>
+  );
+
   return (
-    <div className="select-none">
+    <div className={cn("select-none", compact && !hideTimes && "flex items-center gap-2.5")}>
+      {compact && !hideTimes && (
+        <span className="w-10 text-right text-[11px] font-medium tabular-nums text-subtle">{formatTime(shown)}</span>
+      )}
       <div
         ref={trackRef}
         role="slider"
@@ -34,7 +48,7 @@ export function Scrubber() {
         aria-valuemax={Math.round(d)}
         aria-valuenow={Math.round(shown)}
         aria-valuetext={formatTime(shown)}
-        className="group relative flex h-6 cursor-pointer touch-none items-center"
+        className={cn("group relative flex h-6 cursor-pointer touch-none items-center", compact && "flex-1")}
         onPointerDown={(e) => {
           if (!d) return;
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -56,11 +70,11 @@ export function Scrubber() {
       >
         <div
           className={cn(
-            "relative w-full overflow-hidden rounded-full bg-white/10 transition-[height] duration-150",
+            "relative w-full overflow-hidden rounded-full bg-fg/10 transition-[height] duration-150",
             dragValue !== null ? "h-2" : "h-1 group-hover:h-1.5",
           )}
         >
-          <div className="absolute inset-y-0 left-0 bg-white/15" style={{ width: `${bufPct}%` }} />
+          <div className="absolute inset-y-0 left-0 bg-fg/15" style={{ width: `${bufPct}%` }} />
           <div className="absolute inset-y-0 left-0 rounded-full bg-fg" style={{ width: `${pct}%` }} />
         </div>
         <div
@@ -71,10 +85,13 @@ export function Scrubber() {
           style={{ left: `${pct}%` }}
         />
       </div>
-      <div className="mt-1 flex justify-between text-[11px] font-medium tabular-nums text-subtle">
-        <span>{formatTime(shown)}</span>
-        <span>-{formatTime(Math.max(0, d - shown))}</span>
-      </div>
+      {compact ? (
+        !hideTimes && (
+          <span className="w-10 text-[11px] font-medium tabular-nums text-subtle">-{formatTime(Math.max(0, d - shown))}</span>
+        )
+      ) : (
+        <div className="mt-1 flex justify-between text-[11px] font-medium tabular-nums text-subtle">{times}</div>
+      )}
     </div>
   );
 }

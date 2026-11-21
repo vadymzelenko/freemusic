@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Play, Plus, Radio, Shuffle } from "lucide-react";
+import { Check, ChevronRight, Play, Plus, Radio, Shuffle } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AlbumCard, ArtistCircle } from "@/components/Cards";
 import { BackButton } from "@/components/BackButton";
@@ -60,16 +61,16 @@ export default function ArtistScreen() {
         <div className="relative px-2 pt-3">
           <BackButton />
         </div>
-        <div className="relative flex flex-col items-center px-4 pt-2 pb-5 text-center">
+        <div className="relative flex flex-col items-center px-4 pt-3 pb-5 text-center md:grid md:grid-cols-[auto_1fr] md:items-end md:justify-items-start md:gap-x-8 md:px-0 md:pt-6 md:pb-8 md:text-left md:[&>*:first-child]:row-span-6 md:[&>*:not(:first-child)]:col-start-2">
           {data ? (
-            <Cover src={data.thumbnail} alt="" className="h-40 w-40 shadow-2xl" rounded="rounded-full" priority />
+            <Cover src={data.thumbnail} alt="" className="h-40 w-40 shadow-2xl lg:h-56 lg:w-56" rounded="rounded-full" priority />
           ) : (
             <div className="skeleton h-40 w-40 rounded-full" />
           )}
-          <h1 className="mt-4 text-[26px] font-bold tracking-tight">
+          <h1 className="mt-4 text-[26px] md:mt-0 md:text-[34px] md:leading-tight font-bold tracking-tight">
             {data?.name ?? <span className="skeleton inline-block h-7 w-40 rounded" />}
           </h1>
-          <div className="mt-4 flex w-full max-w-sm gap-2">
+          <div className="mt-4 flex w-full max-w-sm gap-2 md:max-w-md">
             <button
               type="button"
               disabled={!songs.length}
@@ -132,17 +133,29 @@ export default function ArtistScreen() {
         {!data ? (
           <TrackListSkeleton count={5} />
         ) : (
-          songs.slice(0, 10).map((t, i) => (
-            <TrackRow
-              key={t.id}
-              track={t}
-              index={i}
-              onPlay={() => {
-                setRadio(true);
-                playTracks(songs, i);
-              }}
-            />
-          ))
+          <>
+            <div className="lg:grid lg:grid-cols-2 lg:gap-x-4">
+              {songs.slice(0, 10).map((t, i) => (
+                <TrackRow
+                  key={t.id}
+                  track={t}
+                  index={i}
+                  onPlay={() => {
+                    setRadio(true);
+                    playTracks(songs, i);
+                  }}
+                />
+              ))}
+            </div>
+            <div className="px-4 pt-2">
+              <Link
+                href={`/artist/${id}/songs`}
+                className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-card text-[14px] font-medium active:bg-fg/10 md:max-w-xs"
+              >
+                Все треки <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </>
         )}
       </section>
 

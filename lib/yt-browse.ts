@@ -382,3 +382,38 @@ export async function popularArtists(): Promise<{ genre: string; artists: Artist
   if (out.some((g) => g.artists.length)) popularCache.set("all", out);
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* All songs of an artist                                              */
+/* ------------------------------------------------------------------ */
+
+const artistSongsCache = new TTLCache<{ name: string; tracks: Track[] }>(6 * HOUR, 300);
+
+export async function getArtistSongs(id: string): Promise<{ name: string; tracks: Track[] }> {
+  const hit = artistSongsCache.get(id);
+  if (hit) return hit;
+  const page = await getArtistPage(id);
+  const yt = await getYT();
+  const artist = await yt.music.getArtist(id);
+  // "Top songs" shelf links to a playlist with ALL songs of the artist.
+  const shelf = artist.sections.find((s) => s.is(YTNodes.MusicShelf) && s.endpoint) as YTNodes.MusicShelf | undefined;
+  const browseId = (shelf?.endpoint?.payload as { browseId?: string } | undefined)?.browseId;
+  const tracks: (Track | null)[] = [];
+  if (browseId) {
+    try {
+      let pl = await yt.music.getPlaylist(browseId.replace(/^VL/, ""));
+      for (let pages = 0; pages < 6; pages++) {
+        for (const item of pl.items) {
+          if (item.is(YTNodes.MusicResponsiveListItem)) tracks.push(fromListItem(item, { artist: page.name, artistId: id }));
+        }
+        if (!pl.has_continuation || tracks.length >= 500) break;
+        pl = await pl.getContinuation();
+      }
+    } catch {
+      /* fall back to top songs */
+    }
+  }
+  const out = { name: page.name, tracks: tracks.length ? dedupe(tracks) : page.songs };
+  artistSongsCache.set(id, out);
+  return out;
+}

@@ -33,7 +33,7 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
   return (
     <div
       className={cn(
-        "group flex items-center gap-3 rounded-lg px-4 py-2 transition-colors active:bg-white/[0.04] md:hover:bg-white/[0.03]",
+        "group flex items-center gap-3 rounded-lg px-4 py-2 transition-colors active:bg-fg/[0.04] md:hover:bg-fg/[0.03]",
         (dimmed || reaction === -1) && "opacity-50",
       )}
     >
@@ -75,7 +75,7 @@ export const TrackRow = memo(function TrackRow({ track, onPlay, index, dimmed, t
       <button
         type="button"
         onClick={() => openActions(track)}
-        className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:text-fg active:bg-white/10"
+        className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:text-fg active:bg-fg/10"
         aria-label="Действия"
       >
         <MoreHorizontal className="h-5 w-5" />

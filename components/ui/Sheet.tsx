@@ -49,7 +49,7 @@ export function Sheet({
             }}
           >
             <div className="flex justify-center pt-2.5 pb-1">
-              <div className="h-1 w-9 rounded-full bg-white/15" />
+              <div className="h-1 w-9 rounded-full bg-fg/15" />
             </div>
             {title && <div className="px-5 pt-2 pb-3">{title}</div>}
             <div className="max-h-[70dvh] overflow-y-auto pb-3">{children}</div>
@@ -75,7 +75,7 @@ export function SheetItem({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-4 px-5 py-3.5 text-left text-[15px] transition-colors active:bg-white/[0.05] md:hover:bg-white/[0.03] ${
+      className={`flex w-full items-center gap-4 px-5 py-3.5 text-left text-[15px] transition-colors active:bg-fg/[0.05] md:hover:bg-fg/[0.03] ${
         danger ? "text-red-400" : "text-fg"
       }`}
     >

@@ -113,7 +113,7 @@ export default function SearchPage() {
                 setQuery("");
                 inputRef.current?.focus();
               }}
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-muted"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-fg/10 text-muted"
               aria-label="Очистить"
             >
               <X className="h-3.5 w-3.5" />
@@ -149,7 +149,7 @@ export default function SearchPage() {
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => submit(s)}
-                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2.5 text-left text-[15px] active:bg-white/[0.04]"
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2.5 text-left text-[15px] active:bg-fg/[0.04]"
               >
                 <SearchIcon className="h-4 w-4 shrink-0 text-subtle" />
                 <span className="truncate">{s}</span>
@@ -175,7 +175,7 @@ export default function SearchPage() {
                   key={a.id}
                   href={`/artist/${a.id}`}
                   onClick={() => pushSearch(a.name)}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2 active:bg-white/[0.04]"
+                  className="flex items-center gap-3 rounded-lg px-2 py-2 active:bg-fg/[0.04]"
                 >
                   <Cover src={a.thumbnail} alt="" className="h-11 w-11" rounded="rounded-full" />
                   <div className="min-w-0">
@@ -188,7 +188,7 @@ export default function SearchPage() {
                 <Link
                   key={al.id}
                   href={`/album/${al.id}`}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2 active:bg-white/[0.04]"
+                  className="flex items-center gap-3 rounded-lg px-2 py-2 active:bg-fg/[0.04]"
                 >
                   <Cover src={al.cover} alt="" className="h-11 w-11" />
                   <div className="min-w-0">
@@ -246,7 +246,7 @@ export default function SearchPage() {
                     <button
                       type="button"
                       onClick={() => setQuery(h)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] active:bg-white/[0.04] md:hover:bg-white/[0.03]"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] active:bg-fg/[0.04] md:hover:bg-fg/[0.03]"
                     >
                       <Clock className="h-4 w-4 text-subtle" />
                       <span className="truncate">{h}</span>
@@ -333,7 +333,7 @@ export default function SearchPage() {
           )}
 
           {data && tab === "album" && (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 pt-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 pt-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {data.albums.map((a) => (
                 <AlbumCard key={a.id} album={a} fluid />
               ))}
@@ -347,7 +347,7 @@ export default function SearchPage() {
                 <Link
                   key={a.id}
                   href={`/artist/${a.id}`}
-                  className="flex items-center gap-3 px-4 py-2 active:bg-white/[0.04]"
+                  className="flex items-center gap-3 px-4 py-2 active:bg-fg/[0.04]"
                 >
                   <Cover src={a.thumbnail} alt="" className="h-14 w-14" rounded="rounded-full" />
                   <div className="min-w-0">

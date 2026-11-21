@@ -56,7 +56,7 @@ export function AccountCard() {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={meta.avatar_url} alt="" referrerPolicy="no-referrer" className="h-9 w-9 rounded-full" />
       ) : (
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-fg/10 text-sm font-semibold">
           {name.slice(0, 1).toUpperCase()}
         </div>
       )}
@@ -85,7 +85,7 @@ export function AccountCard() {
       <button
         type="button"
         onClick={() => void signOut()}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-muted active:bg-white/10"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-muted active:bg-fg/10"
         aria-label="Выйти"
       >
         <LogOut className="h-4 w-4" />

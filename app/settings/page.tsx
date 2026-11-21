@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Download, History, Music2, ThumbsDown, Trash2, Wrench } from "lucide-react";
+import { BarChart3, ChevronRight, Download, History, Music2, ThumbsDown, Trash2, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AccountCard } from "@/components/AccountCard";
@@ -9,6 +9,8 @@ import { Cover } from "@/components/ui/Cover";
 import { removeAllDownloads, storageEstimate } from "@/lib/downloads";
 import { useDownloads } from "@/store/downloads";
 import { HOME_SECTIONS, useLibrary } from "@/store/library";
+import { THEMES } from "@/lib/themes";
+import { cn } from "@/lib/cn";
 import { useUI } from "@/store/ui";
 
 const mb = (b: number) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} ГБ` : `${Math.round(b / 1e6)} МБ`);
@@ -36,7 +38,7 @@ function Row({
       {href && <ChevronRight className="h-4 w-4 text-subtle" />}
     </>
   );
-  const cls = "flex w-full items-center gap-3.5 px-4 py-3.5 text-left active:bg-white/[0.04] md:hover:bg-white/[0.03]";
+  const cls = "flex w-full items-center gap-3.5 px-4 py-3.5 text-left active:bg-fg/[0.04] md:hover:bg-fg/[0.03]";
   return href ? (
     <Link href={href} className={cls}>
       {inner}
@@ -55,13 +57,13 @@ function Toggle({ on, onChange, title, hint }: { on: boolean; onChange: () => vo
       role="switch"
       aria-checked={on}
       onClick={onChange}
-      className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-white/[0.04]"
+      className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-fg/[0.04]"
     >
       <span className="min-w-0 flex-1">
         <span className="block text-[15px]">{title}</span>
         {hint && <span className="block truncate text-[12.5px] text-subtle">{hint}</span>}
       </span>
-      <span className={`relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors ${on ? "bg-fg" : "bg-white/15"}`}>
+      <span className={`relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors ${on ? "bg-fg" : "bg-fg/15"}`}>
         <span
           className={`absolute top-[3px] h-5 w-5 rounded-full shadow transition-all ${on ? "left-[21px] bg-bg" : "left-[3px] bg-fg/80"}`}
         />
@@ -86,6 +88,10 @@ export default function SettingsPage() {
   const clearHistory = useLibrary((s) => s.clearHistory);
   const hidden = useLibrary((s) => s.hiddenSections);
   const toggleSection = useLibrary((s) => s.toggleSection);
+  const theme = useLibrary((s) => s.theme);
+  const setTheme = useLibrary((s) => s.setTheme);
+  const lang = useLibrary((s) => s.lang);
+  const setLang = useLibrary((s) => s.setLang);
   const downloads = useDownloads((s) => s.items);
   const toast = useUI((s) => s.showToast);
   const [usage, setUsage] = useState<{ usage: number; quota: number } | null>(null);
@@ -108,6 +114,60 @@ export default function SettingsPage() {
         <AccountCard />
       </div>
 
+      <section className="mt-6">
+        <h2 className="px-5 pb-2 text-[12px] font-medium uppercase tracking-[0.1em] text-subtle">Тема</h2>
+        <div className="no-scrollbar flex gap-3 overflow-x-auto px-4 pb-1 md:grid md:grid-cols-7 md:overflow-visible">
+          {THEMES.map((th) => (
+            <button
+              key={th.id}
+              type="button"
+              onClick={() => setTheme(th.id)}
+              aria-pressed={theme === th.id}
+              className="w-[86px] shrink-0 text-center md:w-auto"
+            >
+              <span
+                className={cn(
+                  "relative block aspect-[3/4] w-full overflow-hidden rounded-xl border-2 transition-colors",
+                  theme === th.id ? "border-fg" : "border-line",
+                )}
+                style={{ background: th.bg }}
+              >
+                <span className="absolute inset-x-2 top-2 h-2 rounded-full" style={{ background: th.fg, opacity: 0.85 }} />
+                <span className="absolute inset-x-2 top-6 h-1.5 w-2/3 rounded-full" style={{ background: th.fg, opacity: 0.35 }} />
+                <span className="absolute inset-x-2 bottom-2 h-8 rounded-md" style={{ background: th.card }} />
+              </span>
+              <span className={cn("mt-1.5 block truncate text-[12.5px]", theme === th.id ? "text-fg" : "text-muted")}>
+                {th.name}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <Group title="Язык">
+        <div className="grid grid-cols-2 gap-2 p-3 md:grid-cols-4">
+          {[
+            { id: "", label: "Как в системе" },
+            { id: "ru", label: "Русский" },
+            { id: "en", label: "English" },
+            { id: "pl", label: "Polski" },
+          ].map((l) => (
+            <button
+              key={l.id || "auto"}
+              type="button"
+              onClick={() => setLang(l.id)}
+              aria-pressed={lang === l.id}
+              className={cn(
+                "h-10 rounded-lg border text-[14px] font-medium transition-colors",
+                lang === l.id ? "border-fg bg-fg text-bg" : "border-line text-muted hover:text-fg",
+              )}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </Group>
+
       <Group title="Главная — что показывать">
         {HOME_SECTIONS.map((sec) => (
           <Toggle
@@ -121,7 +181,7 @@ export default function SettingsPage() {
       </Group>
 
       <Group title="Рекомендации">
-        <Link href="/onboarding" className="flex items-center gap-3.5 px-4 py-3 active:bg-white/[0.04]">
+        <Link href="/onboarding" className="flex items-center gap-3.5 px-4 py-3 active:bg-fg/[0.04]">
           <Music2 className="h-[18px] w-[18px] text-muted" />
           <div className="min-w-0 flex-1">
             <div className="text-[15px]">Мои артисты</div>
@@ -136,6 +196,7 @@ export default function SettingsPage() {
           <ChevronRight className="h-4 w-4 text-subtle" />
         </Link>
         <Row icon={<ThumbsDown />} title="Не нравится" value={dislikes} href="/library/disliked" />
+        <Row icon={<BarChart3 />} title="Статистика" href="/stats" />
         <Row
           icon={<History />}
           title="Очистить историю прослушиваний"
@@ -159,7 +220,7 @@ export default function SettingsPage() {
                 {mb(usage.usage)} из {mb(usage.quota)}
               </span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-1.5 overflow-hidden rounded-full bg-fg/10">
               <div className="h-full bg-fg" style={{ width: `${Math.min(100, (usage.usage / usage.quota) * 100)}%` }} />
             </div>
           </div>
