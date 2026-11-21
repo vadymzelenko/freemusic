@@ -1,5 +1,5 @@
 import "server-only";
-import { Innertube, Platform, UniversalCache, YTNodes } from "youtubei.js";
+import { Innertube, Platform, ProtoUtils, UniversalCache, YTNodes } from "youtubei.js";
 import type { Types } from "youtubei.js";
 import { TTLCache } from "./ttl-cache";
 import type { Track } from "./types";
@@ -25,13 +25,23 @@ const SESSION_TTL_MS = 6 * 60 * 60 * 1000; // player JS rotates — refresh peri
 type GlobalYT = { promise: Promise<Innertube>; createdAt: number } | undefined;
 const g = globalThis as unknown as { __yt?: GlobalYT };
 
+export function hasVisitorIdInCookie(): boolean {
+  return /(?:^|;\s*)VISITOR_INFO1_LIVE=/.test(process.env.YT_COOKIE ?? "");
+}
+
 export function getYT(): Promise<Innertube> {
   const now = Date.now();
   if (!g.__yt || now - g.__yt.createdAt > SESSION_TTL_MS) {
+    const cookie = process.env.YT_COOKIE?.trim() || undefined;
+    const visitorId = cookie ? /(?:^|;\s*)VISITOR_INFO1_LIVE=([^;]+)/.exec(cookie)?.[1] : undefined;
     const promise = Innertube.create({
-      cookie: process.env.YT_COOKIE || undefined,
+      cookie,
+      // The visitor id must match the logged-in cookie, otherwise YouTube answers
+      // "UNPLAYABLE: The page needs to be reloaded".
+      visitor_data: visitorId ? ProtoUtils.encodeVisitorData(visitorId, Math.floor(Date.now() / 1000)) : undefined,
       retrieve_player: true,
-      generate_session_locally: true,
+      generate_session_locally: !cookie,
+      enable_session_cache: false,
       cache: new UniversalCache(false),
       lang: "en",
       location: process.env.YT_LOCATION || "US",
@@ -190,7 +200,8 @@ const inflight = new Map<string, Promise<AudioSource>>();
 // Without a cookie the mobile/VR clients are the most permissive; with a cookie the
 // TV/web clients use the logged-in session (ANDROID_VR/IOS ignore cookies).
 const DEFAULT_CLIENTS: Types.InnerTubeClient[] = ["ANDROID_VR", "IOS", "TV", "WEB_EMBEDDED", "MWEB", "TV_EMBEDDED"];
-const COOKIE_CLIENTS: Types.InnerTubeClient[] = ["TV", "WEB_EMBEDDED", "MWEB", "ANDROID_VR", "IOS", "TV_EMBEDDED"];
+// ANDROID_VR / IOS reject authenticated requests (HTTP 400), so they're not used with a cookie.
+const COOKIE_CLIENTS: Types.InnerTubeClient[] = ["TV", "TV_SIMPLY", "WEB", "YTMUSIC", "MWEB", "WEB_EMBEDDED"];
 
 export function clientOrder(): Types.InnerTubeClient[] {
   const env = process.env.YT_CLIENTS?.split(",")
