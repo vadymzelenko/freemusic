@@ -232,6 +232,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const failuresRef = useRef(0);
   const playRecordedRef = useRef(false);
   const fakeEndedRef = useRef(false);
+  /** id of the track the user explicitly chose (tap), as opposed to auto-advance */
+  const pickedRef = useRef<string | null>(null);
   const radioSeedRef = useRef<string | null>(null);
   const loadedIdRef = useRef<string | null>(null);
   const lastPositionUpdateRef = useRef(0);
@@ -422,14 +424,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       remember(tracks);
       radioSeedRef.current = null;
       commitQueue(tracks);
-      loadIndex(Math.min(Math.max(startIndex, 0), tracks.length - 1), true);
+      const i = Math.min(Math.max(startIndex, 0), tracks.length - 1);
+      pickedRef.current = tracks[i]!.id;
+      loadIndex(i, true);
     },
     [commitQueue, loadIndex, remember],
   );
 
   const playTrack = useCallback((t: Track) => playTracks([t], 0), [playTracks]);
 
-  const jumpTo = useCallback((i: number) => loadIndex(i, true), [loadIndex]);
+  const jumpTo = useCallback(
+    (i: number) => {
+      pickedRef.current = queueRef.current[i]?.id ?? null;
+      loadIndex(i, true);
+    },
+    [loadIndex],
+  );
 
   const play = useCallback(() => {
     const a = audioRef.current;
@@ -692,7 +702,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       failuresRef.current += 1;
       // Several tracks in a row failed — the backend is broken, don't burn through the queue.
       const nextIndex = indexRef.current + 1;
-      if (failuresRef.current >= MAX_CONSECUTIVE_FAILURES || nextIndex >= queueRef.current.length) {
+      // A track the user picked themselves never silently turns into another one.
+      if (
+        failuresRef.current >= MAX_CONSECUTIVE_FAILURES ||
+        nextIndex >= queueRef.current.length ||
+        pickedRef.current === t.id
+      ) {
         failuresRef.current = 0;
         a.pause();
         setIsPlaying(false);

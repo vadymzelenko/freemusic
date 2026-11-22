@@ -305,7 +305,7 @@ interface Strategy {
 const STRATEGY_KEY = "vz-download-strategy";
 const DL_CLIENTS: Types.InnerTubeClient[] = ["ANDROID_VR", "IOS"];
 const UAS: UaKind[] = ["client", "native", "safari"];
-const CHUNKS = [1024 * 1024, 256 * 1024];
+const CHUNKS = [2 * 1024 * 1024, 1024 * 1024, 256 * 1024];
 
 function allStrategies(): Strategy[] {
   const out: Strategy[] = [];
@@ -348,8 +348,10 @@ async function rangeReq(url: string, start: number, end: number, headers: Record
     readTimeout: 30000,
   });
   const ok = res.status >= 200 && res.status < 300 && typeof res.data === "string";
-  const b64 = ok ? (res.data as string).replace(/^data:[^,]*,/, "") : "";
-  return { status: res.status, b64, bytes: Math.floor((b64.length * 3) / 4) };
+  // Android returns MIME-style base64 with line breaks — strip them, or byte counts drift.
+  const b64 = ok ? (res.data as string).replace(/^data:[^,]*,/, "").replace(/\s+/g, "") : "";
+  const pad = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
+  return { status: res.status, b64, bytes: b64 ? (b64.length * 3) / 4 - pad : 0 };
 }
 
 async function urlFor(id: string, client: Types.InnerTubeClient, cache: Map<string, string>): Promise<string> {
@@ -390,20 +392,42 @@ export async function downloadToFile(id: string, kind: FileKind, onProgress?: (p
     // This combination works — fetch the rest with it.
     await deleteFile(id, kind);
     await Filesystem.writeFile({ path, directory: Directory.Data, data: first.b64, recursive: true });
-    let pos = first.bytes;
+    // Remaining chunks: up to 3 in flight, appended strictly in order.
+    const starts: number[] = [];
+    for (let p = first.bytes; total && p < total; p += st.chunk) starts.push(p);
+    const fetchPart = async (start: number) => {
+      const end = Math.min(total - 1, start + st.chunk - 1);
+      let part = await rangeReq(url, start, end, headers).catch(() => null);
+      if (!part?.b64) part = await rangeReq(url, start, end, headers).catch(() => null); // one retry
+      if (!part?.b64) throw new Error(`chunk @${start} → ${part?.status ?? "net"}`);
+      return part;
+    };
     let failed = false;
-    while (total && pos < total) {
-      const end = Math.min(total - 1, pos + st.chunk - 1);
-      let part = await rangeReq(url, pos, end, headers).catch(() => null);
-      if (!part?.b64) part = await rangeReq(url, pos, end, headers).catch(() => null); // one retry
-      if (!part?.b64) {
-        errors.push(`${st.client}/${st.ua}: chunk @${pos} → ${part?.status ?? "net"}`);
+    const inflight = new Map<number, Promise<{ b64: string; bytes: number }>>();
+    let next = 0;
+    const pump = () => {
+      while (inflight.size < 3 && next < starts.length) {
+        const start = starts[next++]!;
+        const pr = fetchPart(start);
+        pr.catch(() => {}); // handled when awaited in order
+        inflight.set(start, pr);
+      }
+    };
+    pump();
+    let done = first.bytes;
+    for (const start of starts) {
+      try {
+        const part = await inflight.get(start)!;
+        inflight.delete(start);
+        await Filesystem.appendFile({ path, directory: Directory.Data, data: part.b64 });
+        done += part.bytes;
+        onProgress?.(Math.min(0.99, done / total));
+        pump();
+      } catch (e) {
+        errors.push(`${st.client}/${st.ua}/${st.chunk >> 10}K: ${e instanceof Error ? e.message : String(e)}`);
         failed = true;
         break;
       }
-      await Filesystem.appendFile({ path, directory: Directory.Data, data: part.b64 });
-      pos += part.bytes;
-      onProgress?.(Math.min(0.99, pos / total));
     }
     if (failed) continue;
     const size = (await Filesystem.stat({ path, directory: Directory.Data })).size;
@@ -435,7 +459,12 @@ async function downloadMatrix(id: string): Promise<string[]> {
       const h = headersFor(client, ua);
       const small = await rangeReq(url, 0, 1023, h).catch(() => null);
       const big = await rangeReq(url, 0, 1024 * 1024 - 1, h).catch(() => null);
-      lines.push(`${client} · ua=${ua}: 1KB→${small?.status ?? "net"} 1MB→${big?.status ?? "net"}`);
+      // non-zero offsets: if these fail while 0-… works, googlevideo wants a PO token
+      const second = await rangeReq(url, 1024 * 1024, 2 * 1024 * 1024 - 1, h).catch(() => null);
+      const mid = await rangeReq(url, 3 * 1024 * 1024, 3 * 1024 * 1024 + 65535, h).catch(() => null);
+      lines.push(
+        `${client} · ua=${ua}: 1KB→${small?.status ?? "net"} 1MB→${big?.status ?? "net"} @1MB→${second?.status ?? "net"} @3MB→${mid?.status ?? "net"}`,
+      );
     }
   }
   return lines;
