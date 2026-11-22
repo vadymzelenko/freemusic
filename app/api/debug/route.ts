@@ -1,4 +1,4 @@
-import { clientOrder, getYT, hasVisitorIdInCookie, resetYoutubeBlock, resolveWithClient } from "@/lib/yt";
+import { clientOrder, getYT, hasVisitorIdInCookie, proxyEnabled, resetYoutubeBlock, resolveWithClient, serverFetch } from "@/lib/yt";
 import { VIDEO_ID_RE } from "@/lib/format";
 import { errorMessage, json } from "@/lib/http";
 
@@ -21,6 +21,13 @@ export async function GET(req: Request) {
     .map((c) => c.split("=")[0]!.trim())
     .filter(Boolean);
   const important = ["SID", "HSID", "SSID", "APISID", "SAPISID", "__Secure-1PSID", "__Secure-3PSID", "__Secure-1PSIDTS", "__Secure-3PSIDTS", "LOGIN_INFO", "VISITOR_INFO1_LIVE"];
+  // Which IP does YouTube see? (through the proxy when YT_PROXY_URL is set)
+  let outboundIp: string | null = null;
+  try {
+    outboundIp = (await (await serverFetch("https://api.ipify.org?format=json")).json() as { ip?: string }).ip ?? null;
+  } catch (e) {
+    outboundIp = `error: ${errorMessage(e)}`;
+  }
   let session: unknown;
   let accountOk: boolean | string = false;
   try {
@@ -56,6 +63,8 @@ export async function GET(req: Request) {
   return json(
     {
       id,
+      proxy: proxyEnabled,
+      outbound_ip: outboundIp,
       has_cookie: Boolean(process.env.YT_COOKIE),
       cookie_has_visitor_id: hasVisitorIdInCookie(),
       cookie_missing: important.filter((n) => !cookieNames.includes(n)),
