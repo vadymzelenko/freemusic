@@ -12,7 +12,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { apiUrl, prepareUrl, streamUrl } from "@/lib/format";
+import { apiUrl, checkApiBase, prepareUrl, streamUrl } from "@/lib/format";
 import type { Track } from "@/lib/types";
 import { initCloudSync } from "@/lib/cloud-sync";
 import { offlineUrl, reconcileDownloads } from "@/lib/downloads";
@@ -800,13 +800,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   /* ---------------- persistence ---------------- */
 
   useEffect(() => {
-    // Wake the serverless function + YouTube session in the background on launch.
-    fetchJSON("/api/warm").catch(() => {});
+    // Pick the API (home server or this site), then wake it up in the background.
+    void checkApiBase().then(() => fetchJSON("/api/warm").catch(() => {}));
+    const recheck = () => {
+      if (document.visibilityState === "visible") void checkApiBase();
+    };
+    document.addEventListener("visibilitychange", recheck);
     const stopLocal = initLibrarySync();
     void reconcileDownloads();
     void initAudioBuffer();
     const stopCloud = initCloudSync();
     return () => {
+      document.removeEventListener("visibilitychange", recheck);
       stopLocal();
       stopCloud();
     };
