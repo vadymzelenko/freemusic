@@ -13,6 +13,8 @@
     "bridge": "next build && next start -p 3939"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.6.2",
     "@capacitor/filesystem": "^8.1.5",
     "@supabase/supabase-js": "^2.119.2",

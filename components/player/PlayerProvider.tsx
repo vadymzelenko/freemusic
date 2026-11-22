@@ -36,14 +36,15 @@ const engineReady: Promise<Engine | null> =
 /**
  * Picks audio.src synchronously.
  *  web:    /api/stream (server proxy) or the service-worker-served local copy
- *  native: stored file, or an already-resolved googlevideo URL; null = must resolve first
+ *  native: a stored file (download or prefetched buffer); null = must be fetched first.
+ *          (googlevideo refuses the WebView's own <audio> requests, so the app always plays files)
  */
 function pickSrc(id: string): string | null {
   if (isNative()) {
     if (!eng) return null;
     if (isDownloaded(id)) return eng.fileSrc(id, "dl");
     if (isBuffered(id)) return eng.fileSrc(id, "recent");
-    return eng.peekStreamUrl(id) ?? null;
+    return null;
   }
   return isDownloaded(id) || isBuffered(id) ? offlineUrl(id) : streamUrl(id);
 }
@@ -339,7 +340,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (next && !isDownloaded(next.id)) await bufferTrack(next.id, keep);
         if (cur && !isDownloaded(cur.id) && indexRef.current === i) await bufferTrack(cur.id, keep);
       })();
-    }, 4000);
+    }, isNative() ? 1500 : 4000);
   }, []);
 
   /* ---------------- core: synchronous track switch ---------------- */
@@ -372,11 +373,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           if (p) p.catch(() => setIsPlaying(false));
         }
       } else {
-        // Native app, stream not resolved yet (first tap / cold start): resolve on the device, then play.
+        // Native app, track not on the device yet: fetch it natively (with YouTube headers), then play the file.
         a.pause();
         setIsBuffering(true);
         void engineReady
-          .then((e) => (e ? e.resolveStreamUrl(t.id) : Promise.reject(new Error("engine"))))
+          .then(async (e) => {
+            if (!e) throw new Error("engine");
+            await bufferTrack(t.id, [t.id]);
+            if (!isBuffered(t.id)) await e.downloadToFile(t.id, "recent").then(() => markBuffered(t.id));
+            return e.fileSrc(t.id, "recent");
+          })
           .then((url) => {
             if (loadedIdRef.current !== t.id) return;
             a.src = url;
@@ -666,6 +672,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           void engineReady.then(async (e) => {
             if (!e) return;
             try {
+              await e.deleteFile(id, "recent"); // the stored copy may be broken — fetch a fresh one
               await e.downloadToFile(id, "recent");
               markBuffered(id);
               if (loadedIdRef.current !== id) return;

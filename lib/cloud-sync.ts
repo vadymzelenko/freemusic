@@ -5,6 +5,7 @@ import { create } from "zustand";
 import type { FollowedArtist, PlayEvent, Playlist, Track } from "@/lib/types";
 import { getSupabase } from "@/lib/supabase";
 import { tx } from "@/lib/i18n";
+import { isNative } from "@/lib/native/platform";
 import { EMPTY_LIBRARY, MAX_PLAYS, useLibrary, type LibraryData } from "@/store/library";
 
 /*
@@ -41,9 +42,26 @@ function friendly(e: unknown): string {
 
 export const useAuth = create<AuthState>(() => ({ user: null, ready: false, loaded: false, status: "off", error: null }));
 
+/** Deep link the native app is opened with after Google sign-in (registered in AndroidManifest / Info.plist). */
+export const NATIVE_AUTH_REDIRECT = "com.vzmusic.app://auth-callback";
+
 export async function signInWithGoogle(): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
+  if (isNative()) {
+    // Google forbids sign-in inside WebViews → use the system browser, come back via the deep link.
+    const { data, error } = await sb.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: NATIVE_AUTH_REDIRECT, skipBrowserRedirect: true },
+    });
+    if (error || !data.url) {
+      useAuth.setState({ status: "error", error: error?.message ?? "OAuth" });
+      return;
+    }
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.open({ url: data.url, presentationStyle: "popover" });
+    return;
+  }
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: `${window.location.origin}/library` },
@@ -589,6 +607,33 @@ export function initCloudSync(): () => void {
   const onOnline = () => void flush();
   window.addEventListener("online", onOnline);
 
+  // Native app: finish Google sign-in when the system browser hands control back via the deep link.
+  let removeUrlListener: (() => void) | null = null;
+  if (isNative()) {
+    void import("@capacitor/app").then(({ App }) =>
+      App.addListener("appUrlOpen", async ({ url }) => {
+        if (!url.startsWith(NATIVE_AUTH_REDIRECT)) return;
+        const params = new URL(url.replace("#", "?")).searchParams;
+        const code = params.get("code");
+        try {
+          if (code) {
+            const { error } = await sb.auth.exchangeCodeForSession(code);
+            if (error) throw error;
+          } else if (params.get("error_description")) {
+            throw new Error(params.get("error_description")!);
+          }
+        } catch (e) {
+          useAuth.setState({ status: "error", error: e instanceof Error ? e.message : String(e) });
+        } finally {
+          const { Browser } = await import("@capacitor/browser");
+          void Browser.close().catch(() => {});
+        }
+      }).then((h) => {
+        removeUrlListener = () => void h.remove();
+      }),
+    );
+  }
+
   // Changes made on another device arrive via Supabase Realtime (tables are added to the
   // publication in schema.sql); a slow poll is the fallback.
   let rtTimer: ReturnType<typeof setTimeout> | null = null;
@@ -617,6 +662,7 @@ export function initCloudSync(): () => void {
   }, 60_000);
 
   return () => {
+    removeUrlListener?.();
     unsubAuthRt();
     if (channel) void sb.removeChannel(channel);
     clearInterval(poll);

@@ -37,6 +37,7 @@ import {
   relatedTracks,
   resetYoutubeBlock,
   resolveWithClient,
+  STREAM_FETCH_HEADERS,
 } from "@/lib/yt-core";
 
 /* ------------------------------------------------------------------ */
@@ -209,14 +210,15 @@ async function debug(id: string) {
     invalidateAudioSource(id);
     const src = await getAudioSource(id, { verify: true });
     const direct = await canPlay(src.url);
-    let file = "skipped";
-    if (!direct.startsWith("ok")) {
-      try {
-        const bytes = await downloadToFile(id, "recent");
-        file = `downloaded ${bytes} B → ${await canPlay(fileSrc(id, "recent"))}`;
-      } catch (e) {
-        file = `download failed: ${e instanceof Error ? e.message : String(e)}`;
-      }
+    // This is the path the app's player uses.
+    let file: string;
+    try {
+      await deleteFile(id, "recent");
+      const t0 = Date.now();
+      const bytes = await downloadToFile(id, "recent");
+      file = `downloaded ${Math.round(bytes / 1024)} KB in ${Date.now() - t0} ms → ${await canPlay(fileSrc(id, "recent"))}`;
+    } catch (e) {
+      file = `download failed: ${(e instanceof Error ? e.message : String(e)).slice(0, 300)}`;
     }
     playback = { client: src.client, itag: src.itag, direct, file };
   } catch (e) {
@@ -281,39 +283,54 @@ export function fileSrc(id: string, kind: FileKind): string {
   return Capacitor.convertFileSrc(`${baseUri}/${relPath(id, kind)}`);
 }
 
-/** Downloads a track natively into the app's storage. Returns its size in bytes. */
+/**
+ * Downloads a track natively into the app's storage. Returns its size in bytes.
+ * googlevideo only serves these URLs with YouTube-like headers (the WebView's own <audio>
+ * requests are refused — "error 4"), so the phone downloads with those headers and plays the file.
+ */
 export async function downloadToFile(id: string, kind: FileKind, onProgress?: (p: number) => void): Promise<number> {
   await initFiles();
-  const url = await resolveStreamUrl(id);
-  const handle = onProgress
-    ? await Filesystem.addListener("progress", (e) => {
-        if (e.url === url && e.contentLength > 0) onProgress(Math.min(0.99, e.bytes / e.contentLength));
-      })
-    : null;
+  const attempt = async (url: string) => {
+    const handle = onProgress
+      ? await Filesystem.addListener("progress", (e) => {
+          if (e.url === url && e.contentLength > 0) onProgress(Math.min(0.99, e.bytes / e.contentLength));
+        })
+      : null;
+    try {
+      await Filesystem.downloadFile({
+        url,
+        headers: STREAM_FETCH_HEADERS,
+        path: relPath(id, kind),
+        directory: Directory.Data,
+        recursive: true,
+        progress: !!onProgress,
+        connectTimeout: 15000,
+        readTimeout: 30000,
+      });
+    } catch {
+      // Fallback: plain native HTTP request → base64 → file.
+      const res = await CapacitorHttp.request({ url, method: "GET", headers: STREAM_FETCH_HEADERS, responseType: "blob" });
+      if (res.status < 200 || res.status >= 300 || typeof res.data !== "string") {
+        throw new Error(`googlevideo ${res.status}`);
+      }
+      await Filesystem.writeFile({ path: relPath(id, kind), directory: Directory.Data, data: res.data, recursive: true });
+    } finally {
+      void handle?.remove();
+    }
+    const st = await Filesystem.stat({ path: relPath(id, kind), directory: Directory.Data });
+    // An error page instead of audio (403 etc.) is a few KB — real tracks are hundreds of KB.
+    if (!st.size || st.size < 40_000) {
+      await deleteFile(id, kind);
+      throw new Error(`Bad download (${st.size} B)`);
+    }
+    return st.size;
+  };
   try {
-    await Filesystem.downloadFile({
-      url,
-      path: relPath(id, kind),
-      directory: Directory.Data,
-      recursive: true,
-      progress: !!onProgress,
-    });
-  } catch (e) {
+    return await attempt(await resolveStreamUrl(id));
+  } catch {
     // URL may have expired / been refused — resolve again once.
-    const retry = await resolveStreamUrl(id, true);
-    await Filesystem.downloadFile({ url: retry, path: relPath(id, kind), directory: Directory.Data, recursive: true });
-    void e;
-  } finally {
-    void handle?.remove();
+    return attempt(await resolveStreamUrl(id, true));
   }
-  const st = await Filesystem.stat({ path: relPath(id, kind), directory: Directory.Data });
-  // An error page instead of audio (403 etc.) is a few KB — real tracks are hundreds of KB.
-  if (!st.size || st.size < 40_000) {
-    await deleteFile(id, kind);
-    invalidateAudioSource(id);
-    throw new Error(`Bad download (${st.size} B)`);
-  }
-  return st.size;
 }
 
 export async function deleteFile(id: string, kind: FileKind): Promise<void> {

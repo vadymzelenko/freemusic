@@ -84,6 +84,9 @@ npm run dev        # http://localhost:3000
   `app-debug.apk` на телефоне (разрешите установку из этого источника).
 - **С Android Studio:** `npm run android` → ▶ Run.
 
+**Вход через Google в приложении:** добавьте в Supabase → Authentication → URL Configuration → Redirect URLs
+адрес `com.vzmusic.app://auth-callback`. Вход открывается в системном браузере и сам возвращает в приложение.
+
 На Android во время воспроизведения висит уведомление «vzMusic» — это сервис, который не даёт системе
 остановить музыку при выключенном экране.
 
