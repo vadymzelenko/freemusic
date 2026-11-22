@@ -50,6 +50,34 @@ npm run dev        # http://localhost:3000
 
 Если YouTube отвечает «Sign in to confirm you're not a bot» на все клиенты, сервер на 3 минуты перестаёт обращаться к YouTube, чтобы не усугублять блокировку.
 
+## Домашний сервер на Banana Pi (бесплатно, без cookie)
+
+Маленький компьютер дома (BPI-M4 Zero, Raspberry Pi, старый ноутбук с Linux) работает сервером для сайта:
+YouTube видит ваш домашний IP — cookie и прокси не нужны. Сайт на Vercel остаётся интерфейсом и работает
+где угодно (мобильный интернет, другая страна); музыку он берёт с BPI по публичному HTTPS-адресу
+Tailscale Funnel. Если BPI недоступен, сайт автоматически переключается на собственный API Vercel.
+
+**Установка** (Armbian / Debian / Ubuntu, arm64; по SSH или с клавиатурой):
+```bash
+git clone https://github.com/vadymzelenko/freemusic.git && cd freemusic
+sudo bash scripts/bpi/setup.sh
+```
+Скрипт ставит Node.js 22, включает swap, собирает проект (5–15 минут), запускает сервис `vzmusic`
+(автозапуск после перезагрузки/отключения света), включает ночное автообновление из GitHub и публикует
+сервер через Tailscale Funnel. В конце он покажет адрес вида `https://bpi.tailXXXX.ts.net`.
+
+Дальше: Vercel → Settings → Environment Variables → `NEXT_PUBLIC_STREAM_API_URL` = этот адрес → Redeploy.
+
+Полезные команды на BPI:
+```bash
+systemctl status vzmusic          # работает ли сервер
+journalctl -u vzmusic -f          # логи
+sudo bash scripts/bpi/update.sh   # обновить вручную
+tailscale funnel status           # публичный адрес
+```
+Если репозиторий приватный, клонируйте с токеном GitHub (`git clone https://<token>@github.com/...`) — иначе
+автообновление не сможет скачивать изменения.
+
 ## Полностью автономно: резидентный прокси (рекомендуется)
 
 Сайт (PWA) работает одинаково на Android, iPhone, Mac и Windows, но его сервер (Vercel) YouTube блокирует
