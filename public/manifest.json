@@ -1,6 +1,6 @@
 {
-  "name": "FreeMusic",
-  "short_name": "FreeMusic",
+  "name": "vzMusic",
+  "short_name": "vzMusic",
   "description": "Music player · Музыкальный плеер · Odtwarzacz muzyki",
   "id": "/",
   "start_url": "/",

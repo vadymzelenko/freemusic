@@ -320,7 +320,25 @@ export async function resolveWithClient(
 /** Last client that worked — tried first next time (saves failed round-trips). */
 let preferredClient: Types.InnerTubeClient | null = null;
 
+/**
+ * Circuit breaker: when YouTube answers "Sign in to confirm you're not a bot" on every client,
+ * stop hammering it for a few minutes — repeated attempts only make the block (and the cookie) worse.
+ */
+let blockedUntil = 0;
+let blockedReason = "";
+const BOT_RE = /LOGIN_REQUIRED|confirm you.?re not a bot|Sign in to confirm/i;
+
+export function youtubeBlocked(): { until: number; reason: string } | null {
+  return Date.now() < blockedUntil ? { until: blockedUntil, reason: blockedReason } : null;
+}
+
+export function resetYoutubeBlock() {
+  blockedUntil = 0;
+}
+
 async function resolveAudio(id: string, verify: boolean, avoid?: string): Promise<AudioSource> {
+  const block = youtubeBlocked();
+  if (block) throw new Error(`YT_BLOCKED: ${block.reason}`);
   const errors: string[] = [];
   const order = clientOrder();
   const clients = preferredClient && preferredClient !== avoid
@@ -337,6 +355,11 @@ async function resolveAudio(id: string, verify: boolean, avoid?: string): Promis
       errors.push(err instanceof Error ? err.message : String(err));
       if (client === preferredClient) preferredClient = null;
     }
+  }
+  const botLike = errors.filter((e) => BOT_RE.test(e)).length;
+  if (botLike >= Math.max(1, errors.length - 1)) {
+    blockedUntil = Date.now() + 3 * 60 * 1000;
+    blockedReason = "YouTube: Sign in to confirm you're not a bot";
   }
   throw new Error(`Could not resolve audio for ${id}: ${errors.join(" | ")}`);
 }

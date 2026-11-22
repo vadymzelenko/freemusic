@@ -50,7 +50,7 @@ export function Sidebar() {
             <rect x="19" y="11" width="2.5" height="5" rx="1.25" />
           </svg>
         </div>
-        <span className="text-[16px] font-bold tracking-tight md:max-lg:hidden">FreeMusic</span>
+        <span className="text-[16px] font-bold tracking-tight md:max-lg:hidden">vzMusic</span>
       </div>
 
       <nav className="space-y-0.5 px-3">

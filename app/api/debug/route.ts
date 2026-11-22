@@ -1,4 +1,4 @@
-import { clientOrder, getYT, hasVisitorIdInCookie, resolveWithClient } from "@/lib/yt";
+import { clientOrder, getYT, hasVisitorIdInCookie, resetYoutubeBlock, resolveWithClient } from "@/lib/yt";
 import { VIDEO_ID_RE } from "@/lib/format";
 import { errorMessage, json } from "@/lib/http";
 
@@ -14,9 +14,24 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id") || "CD-E-LDc384"; // Enter Sandman
   if (!VIDEO_ID_RE.test(id)) return json({ error: "Invalid id" }, { status: 400 });
 
+  resetYoutubeBlock(); // diagnostics always hit YouTube for real
+  // Only cookie NAMES (never values) — tells whether the important auth cookies are present.
+  const cookieNames = (process.env.YT_COOKIE ?? "")
+    .split(";")
+    .map((c) => c.split("=")[0]!.trim())
+    .filter(Boolean);
+  const important = ["SID", "HSID", "SSID", "APISID", "SAPISID", "__Secure-1PSID", "__Secure-3PSID", "__Secure-1PSIDTS", "__Secure-3PSIDTS", "LOGIN_INFO", "VISITOR_INFO1_LIVE"];
   let session: unknown;
+  let accountOk: boolean | string = false;
   try {
     const yt = await getYT();
+    try {
+      // fails if the cookie was revoked / rotated by Google
+      await yt.account.getInfo();
+      accountOk = true;
+    } catch (e) {
+      accountOk = errorMessage(e).slice(0, 200);
+    }
     session = {
       ok: true,
       logged_in: yt.session.logged_in,
@@ -43,6 +58,8 @@ export async function GET(req: Request) {
       id,
       has_cookie: Boolean(process.env.YT_COOKIE),
       cookie_has_visitor_id: hasVisitorIdInCookie(),
+      cookie_missing: important.filter((n) => !cookieNames.includes(n)),
+      account_ok: accountOk,
       region: process.env.VERCEL_REGION ?? null,
       session,
       results,

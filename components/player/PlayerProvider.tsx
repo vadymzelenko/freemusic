@@ -151,7 +151,7 @@ function prepare(id: string): Promise<void> {
   return p;
 }
 
-const PREPARE_AHEAD = 3;
+const PREPARE_AHEAD = 2;
 
 type Actions = { play: () => void; pause: () => void; next: () => void; prev: () => void; seek: (s: number) => void };
 
@@ -351,7 +351,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         if (up && !isDownloaded(up.id)) setTimeout(() => void prepare(up.id), (k - 1) * 250);
       }
       // Learn the real duration of the current one too (after its stream request is in flight).
-      if (!local) setTimeout(() => void prepare(t.id), 1500);
+      if (!local && !t.duration) setTimeout(() => void prepare(t.id), 1500);
       scheduleBuffering(i);
       if (prevTrack && !playRecordedRef.current) recordPlay(prevTrack, prevListened, prevCompleted);
       playRecordedRef.current = false;
@@ -624,7 +624,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setError(tx("Не удалось загрузить аудио"));
         fetch(prepareUrl(t.id))
           .then((r) => r.json() as Promise<{ error?: string }>)
-          .then((d) => d.error && setError(tx("Не удалось загрузить аудио: {e}", { e: d.error! })))
+          .then((d) => {
+            if (!d.error) return;
+            if (/YT_BLOCKED|not a bot|LOGIN_REQUIRED/i.test(d.error)) {
+              setError(tx("YouTube не пускает сервер («подтвердите, что вы не бот»). Обновите YT_COOKIE на Vercel и откройте Настройки → Проверить YouTube."));
+            } else setError(tx("Не удалось загрузить аудио: {e}", { e: d.error }));
+          })
           .catch(() => {});
         return;
       }

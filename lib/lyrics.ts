@@ -12,7 +12,7 @@ export interface LyricsResult {
 }
 
 const cache = new TTLCache<LyricsResult>(24 * 60 * 60 * 1000, 2000);
-const UA = "FreeMusic/1.0 (personal music player)";
+const UA = "vzMusic/1.0 (personal music player)";
 
 /** Strip "(Remastered 2021)", "- Live", "feat. X" etc. — LRCLIB matches clean titles better. */
 function cleanTitle(t: string): string {

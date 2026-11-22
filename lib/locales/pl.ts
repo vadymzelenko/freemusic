@@ -255,6 +255,7 @@ const pl: Record<string, string> = {
   "из": "z",
   "этот трек": "ten utwór",
   "Данные хранятся только на этом устройстве. Чтобы включить вход через Google и синхронизацию, задайте переменные Supabase (см. README).": "Dane są przechowywane tylko na tym urządzeniu. Aby włączyć logowanie przez Google i synchronizację, ustaw zmienne Supabase (zob. README).",
+  "YouTube не пускает сервер («подтвердите, что вы не бот»). Обновите YT_COOKIE на Vercel и откройте Настройки → Проверить YouTube.": "YouTube blokuje serwer („potwierdź, że nie jesteś botem”). Zaktualizuj YT_COOKIE na Vercel i otwórz Ustawienia → Sprawdź YouTube.",
 };
 
 export default pl;
