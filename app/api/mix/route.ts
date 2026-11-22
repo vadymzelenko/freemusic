@@ -1,3 +1,4 @@
+import "@/lib/yt"; // configures the server YouTube provider
 import { mixPools } from "@/lib/yt-browse";
 import { VIDEO_ID_RE } from "@/lib/format";
 import { cachedJson, preflight } from "@/lib/http";

@@ -1,7 +1,6 @@
-import "server-only";
 import { YTNodes } from "youtubei.js";
 import { TTLCache } from "./ttl-cache";
-import { artistsFromSubtitle, dedupe, fromListItem, getYTBrowse as getYT, hiResCover, hiResImage, relatedTracks } from "./yt";
+import { artistsFromSubtitle, dedupe, fromListItem, getYTBrowse as getYT, hiResCover, hiResImage, relatedTracks } from "./yt-core";
 import type {
   AlbumPage,
   AlbumSummary,

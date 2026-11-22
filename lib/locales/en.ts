@@ -256,6 +256,9 @@ const en: Record<string, string> = {
   "этот трек": "this track",
   "Данные хранятся только на этом устройстве. Чтобы включить вход через Google и синхронизацию, задайте переменные Supabase (см. README).": "Data is stored only on this device. To enable Google sign-in and sync, set the Supabase variables (see README).",
   "YouTube не пускает сервер («подтвердите, что вы не бот»). Обновите YT_COOKIE на Vercel и откройте Настройки → Проверить YouTube.": "YouTube is blocking the server (“confirm you're not a bot”). Update YT_COOKIE on Vercel, then open Settings → Check YouTube.",
+  "Проверка с этого устройства": "Checking from this device",
+  "Проверка сервера": "Checking the server",
+  "Проверяем… это может занять до минуты": "Checking… this can take up to a minute",
 };
 
 export default en;

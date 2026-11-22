@@ -1,6 +1,7 @@
 "use client";
 
 import { apiUrl } from "@/lib/format";
+import { isNative, nativeEngine } from "@/lib/native/platform";
 
 /*
  * Short-term audio buffer (separate from user downloads):
@@ -17,10 +18,17 @@ const key = (id: string) => `/offline/audio?id=${encodeURIComponent(id)}`;
 const ready = new Set<string>(); // fully cached ids, most recent last
 const inflight = new Map<string, Promise<boolean>>();
 
-const supported = () => typeof window !== "undefined" && "caches" in window && !!navigator.serviceWorker?.controller;
+// web: Cache Storage + service worker; native app: files in the app's storage
+const supported = () =>
+  typeof window !== "undefined" && (isNative() || ("caches" in window && !!navigator.serviceWorker?.controller));
 
 export function isBuffered(id: string): boolean {
   return ready.has(id);
+}
+
+/** Registers a track that was stored by someone else (e.g. the native error fallback). */
+export function markBuffered(id: string) {
+  touch(id);
 }
 
 function touch(id: string) {
@@ -30,6 +38,16 @@ function touch(id: string) {
 
 async function evict(keep: Set<string>) {
   if (ready.size <= MAX_RECENT) return;
+  if (isNative()) {
+    const e = await nativeEngine();
+    for (const id of [...ready]) {
+      if (ready.size <= MAX_RECENT) break;
+      if (keep.has(id)) continue;
+      ready.delete(id);
+      await e.deleteFile(id, "recent");
+    }
+    return;
+  }
   const cache = await caches.open(RECENT_CACHE);
   for (const id of [...ready]) {
     if (ready.size <= MAX_RECENT) break;
@@ -49,6 +67,18 @@ export function bufferTrack(id: string, keep: string[] = []): Promise<boolean> {
   let p = inflight.get(id);
   if (!p) {
     p = (async () => {
+      if (isNative()) {
+        try {
+          await (await nativeEngine()).downloadToFile(id, "recent");
+          touch(id);
+          await evict(new Set([id, ...keep]));
+          return true;
+        } catch {
+          return false;
+        } finally {
+          inflight.delete(id);
+        }
+      }
       try {
         const res = await fetch(apiUrl(`/api/stream?id=${encodeURIComponent(id)}`), { cache: "no-store" });
         if (!res.ok) return false;
@@ -81,7 +111,12 @@ export function markUsed(id: string) {
 
 /** Restores the in-memory index from Cache Storage after a reload. */
 export async function initAudioBuffer(): Promise<void> {
-  if (typeof window === "undefined" || !("caches" in window)) return;
+  if (typeof window === "undefined") return;
+  if (isNative()) {
+    for (const id of await (await nativeEngine()).listFiles("recent")) ready.add(id);
+    return;
+  }
+  if (!("caches" in window)) return;
   try {
     const cache = await caches.open(RECENT_CACHE);
     for (const req of await cache.keys()) {

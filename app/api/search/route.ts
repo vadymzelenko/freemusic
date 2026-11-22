@@ -1,3 +1,4 @@
+import "@/lib/yt"; // configures the server YouTube provider
 import { search, type SearchType } from "@/lib/yt-browse";
 import { cachedJson, json, preflight } from "@/lib/http";
 

@@ -3,6 +3,7 @@
 import { apiUrl } from "@/lib/format";
 import type { Track } from "@/lib/types";
 import { useDownloads } from "@/store/downloads";
+import { isNative, nativeEngine } from "@/lib/native/platform";
 
 export const AUDIO_CACHE = "freemusic-audio-v1";
 export const COVER_CACHE = "freemusic-covers-v1";
@@ -16,7 +17,19 @@ const queue: Track[] = [];
 let running = 0;
 
 function supported(): boolean {
-  return typeof window !== "undefined" && "caches" in window;
+  return typeof window !== "undefined" && (isNative() || "caches" in window);
+}
+
+/** Native app: keep an index of downloads for the offline screen (works without the website). */
+async function writeNativeIndex() {
+  if (!isNative()) return;
+  const items = Object.values(useDownloads.getState().items).map((d) => ({
+    id: d.track.id,
+    title: d.track.title,
+    artist: d.track.artist,
+    cover: d.track.cover,
+  }));
+  await (await nativeEngine()).writeOfflineIndex(items);
 }
 
 async function fetchWithProgress(url: string, onProgress: (p: number) => void): Promise<Blob> {
@@ -49,6 +62,22 @@ async function fetchWithProgress(url: string, onProgress: (p: number) => void): 
 async function downloadOne(t: Track): Promise<void> {
   const { setStatus, markDone } = useDownloads.getState();
   setStatus(t.id, { state: "downloading", progress: 0 });
+  if (isNative()) {
+    try {
+      let last = 0;
+      const bytes = await (await nativeEngine()).downloadToFile(t.id, "dl", (p) => {
+        if (p - last > 0.04) {
+          last = p;
+          setStatus(t.id, { state: "downloading", progress: p });
+        }
+      });
+      markDone(t, bytes);
+      void writeNativeIndex();
+    } catch (e) {
+      setStatus(t.id, { state: "error", message: e instanceof Error ? e.message : String(e) });
+    }
+    return;
+  }
   try {
     let last = 0;
     const blob = await fetchWithProgress(apiUrl(`/api/stream?id=${encodeURIComponent(t.id)}`), (p) => {
@@ -109,6 +138,11 @@ export function downloadTracks(tracks: Track[]): number {
 
 export async function removeDownload(id: string): Promise<void> {
   useDownloads.getState().remove(id);
+  if (isNative()) {
+    await (await nativeEngine()).deleteFile(id, "dl");
+    void writeNativeIndex();
+    return;
+  }
   if (!supported()) return;
   const cache = await caches.open(AUDIO_CACHE);
   await cache.delete(offlineUrl(id));
@@ -117,6 +151,12 @@ export async function removeDownload(id: string): Promise<void> {
 export async function removeAllDownloads(): Promise<void> {
   const ids = Object.keys(useDownloads.getState().items);
   for (const id of ids) useDownloads.getState().remove(id);
+  if (isNative()) {
+    const e = await nativeEngine();
+    for (const id of ids) await e.deleteFile(id, "dl");
+    void writeNativeIndex();
+    return;
+  }
   if (supported()) {
     await caches.delete(AUDIO_CACHE);
     await caches.delete(COVER_CACHE);
@@ -125,6 +165,12 @@ export async function removeAllDownloads(): Promise<void> {
 
 /** Removes entries whose audio disappeared from Cache Storage (e.g. iOS evicted it). */
 export async function reconcileDownloads(): Promise<void> {
+  if (isNative()) {
+    const have = new Set(await (await nativeEngine()).listFiles("dl"));
+    for (const id of Object.keys(useDownloads.getState().items)) if (!have.has(id)) useDownloads.getState().remove(id);
+    void writeNativeIndex();
+    return;
+  }
   if (!supported()) return;
   const cache = await caches.open(AUDIO_CACHE);
   const keys = new Set((await cache.keys()).map((r) => new URL(r.url).searchParams.get("id")));

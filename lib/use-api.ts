@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { apiUrl } from "@/lib/format";
+import { isNative, nativeEngine } from "@/lib/native/platform";
+
+/** One request without caching (prepare / warm / related). Native app → on-device engine. */
+export async function fetchJSON<T>(path: string): Promise<T> {
+  if (isNative()) return (await (await nativeEngine()).route(path)) as T;
+  // Callers inspect the JSON (e.g. { ok: false, error }) — non-2xx is not thrown here.
+  const r = await fetch(apiUrl(path));
+  return (await r.json()) as T;
+}
 
 /* Tiny SWR-like fetch hook: in-memory cache + request de-duplication. */
 
@@ -14,12 +23,17 @@ export async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T>
   if (hit && Date.now() - hit.at < TTL) return hit.data as T;
   let p = inflight.get(path) as Promise<T> | undefined;
   if (!p) {
-    p = fetch(apiUrl(path))
-      .then(async (r) => {
-        const data = (await r.json()) as T & { error?: string };
-        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    const load: Promise<T> = isNative()
+      ? nativeEngine().then((e) => e.route(path) as Promise<T>)
+      : fetch(apiUrl(path)).then(async (r) => {
+          const data = (await r.json()) as T & { error?: string };
+          if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+          return data as T;
+        });
+    p = load
+      .then((data) => {
         cache.set(path, { data, at: Date.now() });
-        return data as T;
+        return data;
       })
       .finally(() => inflight.delete(path));
     inflight.set(path, p);
