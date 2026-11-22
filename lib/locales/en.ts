@@ -259,6 +259,7 @@ const en: Record<string, string> = {
   "Проверка с этого устройства": "Checking from this device",
   "Проверка сервера": "Checking the server",
   "Проверяем… это может занять до минуты": "Checking… this can take up to a minute",
+  "Воспроизведение": "Playback",
 };
 
 export default en;

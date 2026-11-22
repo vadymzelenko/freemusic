@@ -16,8 +16,9 @@
 
 :root {
   color-scheme: dark;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* iOS / browsers: env(); Android app: Capacitor injects --safe-area-inset-* (env() may be 0 there) */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   --tabbar-h: 56px;
   --mini-h: 64px;
   --sidebar-w: 0px;
@@ -68,10 +69,10 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 .pt-safe {
-  padding-top: var(--safe-top);
+  padding-top: var(--safe-top) !important;
 }
 .pb-safe {
-  padding-bottom: var(--safe-bottom);
+  padding-bottom: var(--safe-bottom) !important;
 }
 
 /* room for mini player + tab bar + iOS home indicator */
