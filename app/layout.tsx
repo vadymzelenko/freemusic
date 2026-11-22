@@ -8,13 +8,13 @@ import { THEME_BOOT_SCRIPT } from "@/lib/themes";
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "FreeMusic",
+  title: "vzMusic",
   description: "Минималистичный музыкальный плеер",
   manifest: "/manifest.json",
-  applicationName: "FreeMusic",
+  applicationName: "vzMusic",
   appleWebApp: {
     capable: true,
-    title: "FreeMusic",
+    title: "vzMusic",
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },
