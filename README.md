@@ -50,6 +50,21 @@ npm run dev        # http://localhost:3000
 
 Если YouTube отвечает «Sign in to confirm you're not a bot» на все клиенты, сервер на 3 минуты перестаёт обращаться к YouTube, чтобы не усугублять блокировку.
 
+## Полностью автономно: резидентный прокси (рекомендуется)
+
+Сайт (PWA) работает одинаково на Android, iPhone, Mac и Windows, но его сервер (Vercel) YouTube блокирует
+по IP дата-центра. Решение без cookie и без включённого компьютера — пустить запросы сервера к YouTube
+через **прокси с домашним (residential / ISP) IP**:
+
+1. Купите **статический резидентный (ISP) прокси**, протокол **HTTP**, страна рядом с вами
+   (например Польша/Германия). Подойдёт любой провайдер, где есть «Static Residential / ISP proxy»:
+   Webshare, IPRoyal, Proxy-Cheap, Decodo и т.п. Обычно это 2–6 $/мес за 1 IP.
+   Предпочтительнее тариф без лимита трафика: через прокси идёт и аудио (~4–5 МБ на трек).
+2. Vercel → Settings → Environment Variables → `YT_PROXY_URL` = `http://логин:пароль@хост:порт` → Redeploy.
+3. Vercel → Settings → Functions → Function Region — выберите ближайший к прокси (например `fra1`).
+4. Откройте Настройки → «Проверить YouTube»: `proxy: true`, `outbound_ip` — IP прокси, клиенты зелёные.
+   `YT_COOKIE` после этого можно удалить.
+
 ## Приложение для iPhone и Android (без cookie)
 
 Нативное приложение — это оболочка Capacitor (`ios/`, `android/`). Интерфейс загружается с вашего сайта

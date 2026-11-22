@@ -1,11 +1,43 @@
 import "server-only";
 import { Innertube, ProtoUtils, UniversalCache } from "youtubei.js";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
 import type { Types } from "youtubei.js";
 import { configureYT } from "./yt-core";
 
 export * from "./yt-core";
 
-/* Server (Vercel / home bridge) flavour: Node fetch, optional YT_COOKIE, cached sessions. */
+/* Server (Vercel / home bridge) flavour: Node fetch, optional YT_COOKIE / YT_PROXY_URL, cached sessions. */
+
+/**
+ * YT_PROXY_URL=http://user:pass@host:port — every request to YouTube AND googlevideo goes through it.
+ * With a residential / ISP proxy YouTube sees a home IP: no "confirm you're not a bot", no cookie needed.
+ * (Stream URLs are bound to the IP that requested them, so audio must use the same proxy.)
+ */
+const PROXY_URL = process.env.YT_PROXY_URL?.trim() || "";
+const dispatcher = PROXY_URL ? new ProxyAgent({ uri: PROXY_URL, connections: 32 }) : null;
+
+export const proxyEnabled = !!dispatcher;
+
+export const serverFetch: typeof fetch = dispatcher
+  ? ((async (input: RequestInfo | URL, init?: RequestInit) => {
+      // youtubei.js passes Node's own Request objects, which npm-undici's fetch can't read —
+      // unpack them into url + init.
+      let url: string;
+      let opts: RequestInit = { ...init };
+      if (typeof input === "object" && "url" in input && "method" in input) {
+        const req = input as Request;
+        url = req.url;
+        const headers = new Headers(req.headers);
+        new Headers(init?.headers).forEach((v, k) => headers.set(k, v));
+        let body = init?.body;
+        if (body === undefined && req.method !== "GET" && req.method !== "HEAD") body = await req.arrayBuffer();
+        opts = { ...init, method: init?.method ?? req.method, headers, body, redirect: init?.redirect ?? req.redirect };
+      } else {
+        url = input instanceof URL ? input.href : String(input);
+      }
+      return undiciFetch(url, { ...(opts as Parameters<typeof undiciFetch>[1]), dispatcher }) as unknown as Response;
+    }) as typeof fetch)
+  : (input, init) => fetch(input, init);
 
 const SESSION_TTL_MS = 6 * 60 * 60 * 1000; // player JS rotates — refresh periodically
 
@@ -20,6 +52,7 @@ function createInnertube(withPlayer: boolean): Promise<Innertube> {
   const cookie = process.env.YT_COOKIE?.trim() || undefined;
   const visitorId = cookie ? /(?:^|;\s*)VISITOR_INFO1_LIVE=([^;]+)/.exec(cookie)?.[1] : undefined;
   return Innertube.create({
+    fetch: serverFetch,
     cookie,
     // The visitor id must match the logged-in cookie, otherwise YouTube answers
     // "UNPLAYABLE: The page needs to be reloaded".
@@ -60,7 +93,7 @@ configureYT({
     if (g.__yt && Date.now() - g.__yt.createdAt <= SESSION_TTL_MS) return g.__yt.promise;
     return memo("__ytBrowse", false);
   },
-  fetch: (input, init) => fetch(input, init),
+  fetch: serverFetch,
   clients: () => {
     const env = process.env.YT_CLIENTS?.split(",")
       .map((s) => s.trim())

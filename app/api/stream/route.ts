@@ -1,4 +1,4 @@
-import { getAudioSource, getYT, STREAM_FETCH_HEADERS, type AudioSource } from "@/lib/yt";
+import { getAudioSource, getYT, serverFetch, STREAM_FETCH_HEADERS, type AudioSource } from "@/lib/yt";
 import { VIDEO_ID_RE } from "@/lib/format";
 import { CORS_HEADERS, errorMessage, json, preflight } from "@/lib/http";
 
@@ -59,7 +59,7 @@ async function fetchUpstream(
         return { upstream: new globalThis.Response(null), status: 416, headers: h };
       }
     }
-    const upstream = await fetch(`${src.url}&range=${start}-${end}`, {
+    const upstream = await serverFetch(`${src.url}&range=${start}-${end}`, {
       headers: UPSTREAM_HEADERS,
       signal,
       cache: "no-store",
@@ -72,7 +72,7 @@ async function fetchUpstream(
   // Unknown size: forward the Range header as-is and mirror upstream headers.
   const fwd = new Headers(UPSTREAM_HEADERS);
   fwd.set("Range", rawRange ?? "bytes=0-");
-  const upstream = await fetch(src.url, { headers: fwd, signal, cache: "no-store" });
+  const upstream = await serverFetch(src.url, { headers: fwd, signal, cache: "no-store" });
   for (const k of ["content-length", "content-range"]) {
     const v = upstream.headers.get(k);
     if (v) headers.set(k, v);
