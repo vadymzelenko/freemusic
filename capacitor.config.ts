@@ -23,6 +23,15 @@ const config: CapacitorConfig = {
   android: {
     backgroundColor: "#09090b",
   },
+  plugins: {
+    // Edge-to-edge: the page draws under the status / navigation bars and receives the real insets
+    // as CSS variables (--safe-area-inset-*), so there are no blank stripes.
+    SystemBars: {
+      insetsHandling: "css",
+      initialViewportFitValueHint: "cover",
+      style: "DARK",
+    },
+  },
 };
 
 export default config;

@@ -50,6 +50,17 @@ export default function DebugPage() {
 
       {busy && <p className="text-sm text-subtle">{tx("Проверяем… это может занять до минуты")}</p>}
 
+      {(data as { playback?: Record<string, unknown> } | null)?.playback && (
+        <div className="mb-3 rounded-xl border border-line bg-card px-4 py-3 text-[13.5px]">
+          <div className="mb-1 font-medium">{tx("Воспроизведение")}</div>
+          {Object.entries((data as { playback: Record<string, unknown> }).playback).map(([k, v]) => (
+            <div key={k} className="break-words text-muted">
+              <span className="text-subtle">{k}:</span> {String(v)}
+            </div>
+          ))}
+        </div>
+      )}
+
       {results && (
         <ul className="mb-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
           {results.map((r) => (

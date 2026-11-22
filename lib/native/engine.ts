@@ -118,7 +118,8 @@ function createFull(): Promise<Innertube> {
 }
 
 // Residential / mobile IP → the simple clients work without cookies or PO tokens.
-const DEVICE_CLIENTS: Types.InnerTubeClient[] = ["IOS", "ANDROID_VR", "TV", "WEB_EMBEDDED", "MWEB"];
+// ANDROID_VR first: its stream URLs need no PO token and play in any WebView.
+const DEVICE_CLIENTS: Types.InnerTubeClient[] = ["ANDROID_VR", "IOS", "TV", "WEB_EMBEDDED", "MWEB"];
 
 configureYT({
   full: createFull,
@@ -167,7 +168,7 @@ export async function route(path: string): Promise<unknown> {
       });
     case "/api/prepare": {
       try {
-        const src = await getAudioSource(id);
+        const src = await getAudioSource(id, { verify: true });
         return { ok: true, id, mimeType: src.mimeType, itag: src.itag, durationMs: src.durationMs, client: src.client };
       } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -202,7 +203,26 @@ async function debug(id: string) {
       results.push({ client, ok: false, ms: Date.now() - t0, error: e instanceof Error ? e.message : String(e) });
     }
   }
-  return { id, mode: `native-${Capacitor.getPlatform()}`, session, results };
+  // End-to-end: resolve like the player does and really try to play it, plus a native download.
+  let playback: unknown;
+  try {
+    invalidateAudioSource(id);
+    const src = await getAudioSource(id, { verify: true });
+    const direct = await canPlay(src.url);
+    let file = "skipped";
+    if (!direct.startsWith("ok")) {
+      try {
+        const bytes = await downloadToFile(id, "recent");
+        file = `downloaded ${bytes} B → ${await canPlay(fileSrc(id, "recent"))}`;
+      } catch (e) {
+        file = `download failed: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+    playback = { client: src.client, itag: src.itag, direct, file };
+  } catch (e) {
+    playback = { error: e instanceof Error ? e.message : String(e) };
+  }
+  return { id, mode: `native-${Capacitor.getPlatform()}`, session, playback, results };
 }
 
 /* ------------------------------------------------------------------ */
@@ -214,9 +234,30 @@ export function peekStreamUrl(id: string): string | undefined {
   return peekAudioSource(id)?.url;
 }
 
+/** Always verified on the device (one tiny request) — an unplayable URL is worse than a slow one. */
 export async function resolveStreamUrl(id: string, fresh = false): Promise<string> {
   if (fresh) invalidateAudioSource(id);
-  return (await getAudioSource(id, { fresh, verify: fresh })).url;
+  return (await getAudioSource(id, { fresh, verify: true })).url;
+}
+
+/** Tries to actually play a URL in the WebView's media stack (used by diagnostics). */
+function canPlay(url: string, timeoutMs = 12000): Promise<string> {
+  return new Promise((resolve) => {
+    const a = new Audio();
+    a.preload = "auto";
+    a.muted = true;
+    const done = (r: string) => {
+      clearTimeout(t);
+      a.removeAttribute("src");
+      a.load();
+      resolve(r);
+    };
+    const t = setTimeout(() => done("timeout"), timeoutMs);
+    a.oncanplay = () => done(`ok (${Math.round(a.duration)}s)`);
+    a.onerror = () => done(`error ${a.error?.code ?? "?"} ${a.error?.message ?? ""}`.trim());
+    a.src = url;
+    a.load();
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -266,7 +307,12 @@ export async function downloadToFile(id: string, kind: FileKind, onProgress?: (p
     void handle?.remove();
   }
   const st = await Filesystem.stat({ path: relPath(id, kind), directory: Directory.Data });
-  if (!st.size) throw new Error("Empty file");
+  // An error page instead of audio (403 etc.) is a few KB — real tracks are hundreds of KB.
+  if (!st.size || st.size < 40_000) {
+    await deleteFile(id, kind);
+    invalidateAudioSource(id);
+    throw new Error(`Bad download (${st.size} B)`);
+  }
   return st.size;
 }
 
