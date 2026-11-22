@@ -283,6 +283,33 @@ export function fileSrc(id: string, kind: FileKind): string {
   return Capacitor.convertFileSrc(`${baseUri}/${relPath(id, kind)}`);
 }
 
+/** Ranged download through the native HTTP stack, written in pieces (base64 over the bridge). */
+async function chunked(url: string, total: number, path: string, onProgress?: (p: number) => void): Promise<void> {
+  const CHUNK = 4 * 1024 * 1024;
+  let start = 0;
+  let first = true;
+  for (;;) {
+    const end = total ? Math.min(total - 1, start + CHUNK - 1) : start + CHUNK - 1;
+    const res = await CapacitorHttp.request({
+      url: `${url}&range=${start}-${end}`,
+      method: "GET",
+      headers: STREAM_FETCH_HEADERS,
+      responseType: "blob",
+      connectTimeout: 15000,
+      readTimeout: 30000,
+    });
+    if (res.status < 200 || res.status >= 300 || typeof res.data !== "string") throw new Error(`googlevideo ${res.status}`);
+    const b64 = res.data.replace(/^data:[^,]*,/, "");
+    if (first) await Filesystem.writeFile({ path, directory: Directory.Data, data: b64, recursive: true });
+    else await Filesystem.appendFile({ path, directory: Directory.Data, data: b64 });
+    first = false;
+    const got = Math.floor((b64.length * 3) / 4);
+    start = end + 1;
+    if (total) onProgress?.(Math.min(0.99, start / total));
+    if ((total && start >= total) || (!total && got < CHUNK)) break;
+  }
+}
+
 /**
  * Downloads a track natively into the app's storage. Returns its size in bytes.
  * googlevideo only serves these URLs with YouTube-like headers (the WebView's own <audio>
@@ -291,37 +318,45 @@ export function fileSrc(id: string, kind: FileKind): string {
 export async function downloadToFile(id: string, kind: FileKind, onProgress?: (p: number) => void): Promise<number> {
   await initFiles();
   const attempt = async (url: string) => {
-    const handle = onProgress
-      ? await Filesystem.addListener("progress", (e) => {
-          if (e.url === url && e.contentLength > 0) onProgress(Math.min(0.99, e.bytes / e.contentLength));
-        })
-      : null;
-    try {
-      await Filesystem.downloadFile({
-        url,
-        headers: STREAM_FETCH_HEADERS,
-        path: relPath(id, kind),
-        directory: Directory.Data,
-        recursive: true,
-        progress: !!onProgress,
-        connectTimeout: 15000,
-        readTimeout: 30000,
-      });
-    } catch {
-      // Fallback: plain native HTTP request → base64 → file.
-      const res = await CapacitorHttp.request({ url, method: "GET", headers: STREAM_FETCH_HEADERS, responseType: "blob" });
-      if (res.status < 200 || res.status >= 300 || typeof res.data !== "string") {
-        throw new Error(`googlevideo ${res.status}`);
+    // googlevideo refuses whole-file requests for these URLs (403) — always ask for explicit
+    // byte ranges with the `range=` parameter, like YouTube's own player (≤ 8 MB per request).
+    const total = Number(new URL(url).searchParams.get("clen")) || 0;
+    const CHUNK = 8 * 1024 * 1024;
+    const path = relPath(id, kind);
+    await deleteFile(id, kind);
+
+    if (total && total <= CHUNK) {
+      const ranged = `${url}&range=0-${total - 1}`;
+      const handle = onProgress
+        ? await Filesystem.addListener("progress", (e) => {
+            if (e.url === ranged && e.contentLength > 0) onProgress(Math.min(0.99, e.bytes / e.contentLength));
+          })
+        : null;
+      try {
+        await Filesystem.downloadFile({
+          url: ranged,
+          headers: STREAM_FETCH_HEADERS,
+          path,
+          directory: Directory.Data,
+          recursive: true,
+          progress: !!onProgress,
+          connectTimeout: 15000,
+          readTimeout: 30000,
+        });
+      } catch {
+        await chunked(ranged.replace(/&range=[^&]*$/, ""), total, path, onProgress);
+      } finally {
+        void handle?.remove();
       }
-      await Filesystem.writeFile({ path: relPath(id, kind), directory: Directory.Data, data: res.data, recursive: true });
-    } finally {
-      void handle?.remove();
+    } else {
+      await chunked(url, total, path, onProgress);
     }
-    const st = await Filesystem.stat({ path: relPath(id, kind), directory: Directory.Data });
+
+    const st = await Filesystem.stat({ path, directory: Directory.Data });
     // An error page instead of audio (403 etc.) is a few KB — real tracks are hundreds of KB.
-    if (!st.size || st.size < 40_000) {
+    if (!st.size || st.size < 40_000 || (total && st.size < total * 0.98)) {
       await deleteFile(id, kind);
-      throw new Error(`Bad download (${st.size} B)`);
+      throw new Error(`Bad download (${st.size} of ${total} B)`);
     }
     return st.size;
   };
