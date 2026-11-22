@@ -14,7 +14,7 @@
 
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
-import { Innertube } from "youtubei.js";
+import { Constants, Innertube } from "youtubei.js";
 import type { Types } from "youtubei.js";
 import { getLyrics } from "@/lib/lyrics";
 import {
@@ -220,7 +220,13 @@ async function debug(id: string) {
     } catch (e) {
       file = `download failed: ${(e instanceof Error ? e.message : String(e)).slice(0, 300)}`;
     }
-    playback = { client: src.client, itag: src.itag, direct, file };
+    let strategy = "";
+    try {
+      strategy = JSON.stringify(loadWinner());
+    } catch {
+      /* ignore */
+    }
+    playback = { client: src.client, itag: src.itag, direct, file, strategy, matrix: (await downloadMatrix(id)).join("\n") };
   } catch (e) {
     playback = { error: e instanceof Error ? e.message : String(e) };
   }
@@ -283,89 +289,156 @@ export function fileSrc(id: string, kind: FileKind): string {
   return Capacitor.convertFileSrc(`${baseUri}/${relPath(id, kind)}`);
 }
 
-/** Ranged download through the native HTTP stack, written in pieces (base64 over the bridge). */
-async function chunked(url: string, total: number, path: string, onProgress?: (p: number) => void): Promise<void> {
-  const CHUNK = 4 * 1024 * 1024;
-  let start = 0;
-  let first = true;
-  for (;;) {
-    const end = total ? Math.min(total - 1, start + CHUNK - 1) : start + CHUNK - 1;
-    const res = await CapacitorHttp.request({
-      url: `${url}&range=${start}-${end}`,
-      method: "GET",
-      headers: STREAM_FETCH_HEADERS,
-      responseType: "blob",
-      connectTimeout: 15000,
-      readTimeout: 30000,
-    });
-    if (res.status < 200 || res.status >= 300 || typeof res.data !== "string") throw new Error(`googlevideo ${res.status}`);
-    const b64 = res.data.replace(/^data:[^,]*,/, "");
-    if (first) await Filesystem.writeFile({ path, directory: Directory.Data, data: b64, recursive: true });
-    else await Filesystem.appendFile({ path, directory: Directory.Data, data: b64 });
-    first = false;
-    const got = Math.floor((b64.length * 3) / 4);
-    start = end + 1;
-    if (total) onProgress?.(Math.min(0.99, start / total));
-    if ((total && start >= total) || (!total && got < CHUNK)) break;
+/* ---------- adaptive downloader ----------
+ * googlevideo is picky about who downloads what. We try combinations of
+ *   client (whose URL) × User-Agent × chunk size
+ * on the first chunk, remember the winner, and fetch the rest of the file with it.
+ */
+
+type UaKind = "client" | "native" | "safari";
+interface Strategy {
+  client: Types.InnerTubeClient;
+  ua: UaKind;
+  chunk: number;
+}
+
+const STRATEGY_KEY = "vz-download-strategy";
+const DL_CLIENTS: Types.InnerTubeClient[] = ["ANDROID_VR", "IOS"];
+const UAS: UaKind[] = ["client", "native", "safari"];
+const CHUNKS = [1024 * 1024, 256 * 1024];
+
+function allStrategies(): Strategy[] {
+  const out: Strategy[] = [];
+  for (const chunk of CHUNKS) for (const client of DL_CLIENTS) for (const ua of UAS) out.push({ client, ua, chunk });
+  return out;
+}
+
+function loadWinner(): Strategy | null {
+  try {
+    return JSON.parse(localStorage.getItem(STRATEGY_KEY) ?? "null") as Strategy | null;
+  } catch {
+    return null;
+  }
+}
+function saveWinner(st: Strategy | null) {
+  try {
+    if (st) localStorage.setItem(STRATEGY_KEY, JSON.stringify(st));
+    else localStorage.removeItem(STRATEGY_KEY);
+  } catch {
+    /* ignore */
   }
 }
 
+function headersFor(client: Types.InnerTubeClient, ua: UaKind): Record<string, string> {
+  if (ua === "safari") return { ...STREAM_FETCH_HEADERS };
+  if (ua === "native") return { accept: "*/*" };
+  const clients = Constants.CLIENTS as unknown as Record<string, { USER_AGENT?: string }>;
+  const agent = clients[client]?.USER_AGENT;
+  return agent ? { accept: "*/*", "user-agent": agent } : { accept: "*/*" };
+}
+
+/** One ranged request through the native HTTP stack. Returns base64 data on success. */
+async function rangeReq(url: string, start: number, end: number, headers: Record<string, string>) {
+  const res = await CapacitorHttp.request({
+    url: `${url}&range=${start}-${end}`,
+    method: "GET",
+    headers,
+    responseType: "blob",
+    connectTimeout: 15000,
+    readTimeout: 30000,
+  });
+  const ok = res.status >= 200 && res.status < 300 && typeof res.data === "string";
+  const b64 = ok ? (res.data as string).replace(/^data:[^,]*,/, "") : "";
+  return { status: res.status, b64, bytes: Math.floor((b64.length * 3) / 4) };
+}
+
+async function urlFor(id: string, client: Types.InnerTubeClient, cache: Map<string, string>): Promise<string> {
+  const hit = cache.get(client);
+  if (hit) return hit;
+  const url = (await resolveWithClient(id, client, false)).url;
+  cache.set(client, url);
+  return url;
+}
+
 /**
- * Downloads a track natively into the app's storage. Returns its size in bytes.
- * googlevideo only serves these URLs with YouTube-like headers (the WebView's own <audio>
- * requests are refused — "error 4"), so the phone downloads with those headers and plays the file.
+ * Downloads a track natively into the app's storage (ranged requests, ≤1 MB each).
+ * Returns its size in bytes.
  */
 export async function downloadToFile(id: string, kind: FileKind, onProgress?: (p: number) => void): Promise<number> {
   await initFiles();
-  const attempt = async (url: string) => {
-    // googlevideo refuses whole-file requests for these URLs (403) — always ask for explicit
-    // byte ranges with the `range=` parameter, like YouTube's own player (≤ 8 MB per request).
+  const path = relPath(id, kind);
+  const urls = new Map<string, string>();
+  const winner = loadWinner();
+  const order = winner ? [winner, ...allStrategies().filter((x) => JSON.stringify(x) !== JSON.stringify(winner))] : allStrategies();
+
+  const errors: string[] = [];
+  for (const st of order) {
+    let url: string;
+    try {
+      url = await urlFor(id, st.client, urls);
+    } catch (e) {
+      errors.push(`${st.client}: ${e instanceof Error ? e.message : String(e)}`);
+      continue;
+    }
     const total = Number(new URL(url).searchParams.get("clen")) || 0;
-    const CHUNK = 8 * 1024 * 1024;
-    const path = relPath(id, kind);
+    const headers = headersFor(st.client, st.ua);
+    const first = await rangeReq(url, 0, Math.min(st.chunk, total || st.chunk) - 1, headers).catch(() => null);
+    if (!first || !first.b64) {
+      errors.push(`${st.client}/${st.ua}/${st.chunk >> 10}K: ${first?.status ?? "net"}`);
+      continue;
+    }
+    // This combination works — fetch the rest with it.
     await deleteFile(id, kind);
-
-    if (total && total <= CHUNK) {
-      const ranged = `${url}&range=0-${total - 1}`;
-      const handle = onProgress
-        ? await Filesystem.addListener("progress", (e) => {
-            if (e.url === ranged && e.contentLength > 0) onProgress(Math.min(0.99, e.bytes / e.contentLength));
-          })
-        : null;
-      try {
-        await Filesystem.downloadFile({
-          url: ranged,
-          headers: STREAM_FETCH_HEADERS,
-          path,
-          directory: Directory.Data,
-          recursive: true,
-          progress: !!onProgress,
-          connectTimeout: 15000,
-          readTimeout: 30000,
-        });
-      } catch {
-        await chunked(ranged.replace(/&range=[^&]*$/, ""), total, path, onProgress);
-      } finally {
-        void handle?.remove();
+    await Filesystem.writeFile({ path, directory: Directory.Data, data: first.b64, recursive: true });
+    let pos = first.bytes;
+    let failed = false;
+    while (total && pos < total) {
+      const end = Math.min(total - 1, pos + st.chunk - 1);
+      let part = await rangeReq(url, pos, end, headers).catch(() => null);
+      if (!part?.b64) part = await rangeReq(url, pos, end, headers).catch(() => null); // one retry
+      if (!part?.b64) {
+        errors.push(`${st.client}/${st.ua}: chunk @${pos} → ${part?.status ?? "net"}`);
+        failed = true;
+        break;
       }
-    } else {
-      await chunked(url, total, path, onProgress);
+      await Filesystem.appendFile({ path, directory: Directory.Data, data: part.b64 });
+      pos += part.bytes;
+      onProgress?.(Math.min(0.99, pos / total));
     }
-
-    const st = await Filesystem.stat({ path, directory: Directory.Data });
-    // An error page instead of audio (403 etc.) is a few KB — real tracks are hundreds of KB.
-    if (!st.size || st.size < 40_000 || (total && st.size < total * 0.98)) {
-      await deleteFile(id, kind);
-      throw new Error(`Bad download (${st.size} of ${total} B)`);
+    if (failed) continue;
+    const size = (await Filesystem.stat({ path, directory: Directory.Data })).size;
+    if (size < 40_000 || (total && size < total * 0.98)) {
+      errors.push(`${st.client}/${st.ua}: short file ${size}/${total}`);
+      continue;
     }
-    return st.size;
-  };
-  try {
-    return await attempt(await resolveStreamUrl(id));
-  } catch {
-    // URL may have expired / been refused — resolve again once.
-    return attempt(await resolveStreamUrl(id, true));
+    saveWinner(st);
+    return size;
   }
+  saveWinner(null);
+  await deleteFile(id, kind);
+  throw new Error(`googlevideo refused all download variants: ${errors.slice(0, 6).join(" | ")}`);
+}
+
+/** Diagnostics: HTTP status of googlevideo for every combination (1 KB and 1 MB ranges). */
+async function downloadMatrix(id: string): Promise<string[]> {
+  const urls = new Map<string, string>();
+  const lines: string[] = [];
+  for (const client of DL_CLIENTS) {
+    let url: string;
+    try {
+      url = await urlFor(id, client, urls);
+    } catch (e) {
+      lines.push(`${client}: resolve failed — ${e instanceof Error ? e.message : String(e)}`);
+      continue;
+    }
+    for (const ua of UAS) {
+      const h = headersFor(client, ua);
+      const small = await rangeReq(url, 0, 1023, h).catch(() => null);
+      const big = await rangeReq(url, 0, 1024 * 1024 - 1, h).catch(() => null);
+      lines.push(`${client} · ua=${ua}: 1KB→${small?.status ?? "net"} 1MB→${big?.status ?? "net"}`);
+    }
+  }
+  return lines;
 }
 
 export async function deleteFile(id: string, kind: FileKind): Promise<void> {

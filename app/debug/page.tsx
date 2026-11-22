@@ -54,7 +54,7 @@ export default function DebugPage() {
         <div className="mb-3 rounded-xl border border-line bg-card px-4 py-3 text-[13.5px]">
           <div className="mb-1 font-medium">{tx("Воспроизведение")}</div>
           {Object.entries((data as { playback: Record<string, unknown> }).playback).map(([k, v]) => (
-            <div key={k} className="break-words text-muted">
+            <div key={k} className="whitespace-pre-line break-words text-muted">
               <span className="text-subtle">{k}:</span> {String(v)}
             </div>
           ))}
