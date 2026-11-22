@@ -7,3 +7,7 @@ next-env.d.ts
 .env*.local
 .env
 .DS_Store
+# Capacitor
+android/app/build
+android/.gradle
+ios/App/App/public

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">vzMusic</string>
+    <string name="title_activity_main">vzMusic</string>
+    <string name="package_name">com.vzmusic.app</string>
+    <string name="custom_url_scheme">com.vzmusic.app</string>
+</resources>

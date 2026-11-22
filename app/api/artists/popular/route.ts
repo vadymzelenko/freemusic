@@ -1,3 +1,4 @@
+import "@/lib/yt"; // configures the server YouTube provider
 import { popularArtists } from "@/lib/yt-browse";
 import { cachedJson, preflight } from "@/lib/http";
 

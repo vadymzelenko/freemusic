@@ -16,7 +16,37 @@ import { apiUrl, prepareUrl, streamUrl } from "@/lib/format";
 import type { Track } from "@/lib/types";
 import { initCloudSync } from "@/lib/cloud-sync";
 import { offlineUrl, reconcileDownloads } from "@/lib/downloads";
-import { bufferTrack, initAudioBuffer, isBuffered, markUsed } from "@/lib/audio-cache";
+import { bufferTrack, initAudioBuffer, isBuffered, markBuffered, markUsed } from "@/lib/audio-cache";
+import { fetchJSON, getJSON } from "@/lib/use-api";
+import { isNative, nativeEngine } from "@/lib/native/platform";
+import { nativePlaying } from "@/lib/native/media";
+
+/* ---------------- native app: on-device engine (loaded once at startup) ---------------- */
+type Engine = Awaited<ReturnType<typeof nativeEngine>>;
+let eng: Engine | null = null;
+const engineReady: Promise<Engine | null> =
+  typeof window !== "undefined" && isNative()
+    ? nativeEngine().then(async (e) => {
+        await e.initFiles();
+        eng = e;
+        return e;
+      })
+    : Promise.resolve(null);
+
+/**
+ * Picks audio.src synchronously.
+ *  web:    /api/stream (server proxy) or the service-worker-served local copy
+ *  native: stored file, or an already-resolved googlevideo URL; null = must resolve first
+ */
+function pickSrc(id: string): string | null {
+  if (isNative()) {
+    if (!eng) return null;
+    if (isDownloaded(id)) return eng.fileSrc(id, "dl");
+    if (isBuffered(id)) return eng.fileSrc(id, "recent");
+    return eng.peekStreamUrl(id) ?? null;
+  }
+  return isDownloaded(id) || isBuffered(id) ? offlineUrl(id) : streamUrl(id);
+}
 import { buildProfile, filterRadio } from "@/lib/recommend";
 import { isDownloaded } from "@/store/downloads";
 import { initLibrarySync, useHydrated, useLibrary } from "@/store/library";
@@ -135,8 +165,7 @@ const prepared = new Map<string, Promise<void>>();
 function prepare(id: string): Promise<void> {
   let p = prepared.get(id);
   if (!p) {
-    p = fetch(prepareUrl(id))
-      .then((r) => r.json() as Promise<{ ok?: boolean; durationMs?: number }>)
+    p = fetchJSON<{ ok?: boolean; durationMs?: number }>(`/api/prepare?id=${encodeURIComponent(id)}`)
       .then((d) => {
         if (d.durationMs) realDurations.set(id, d.durationMs / 1000);
         if (!d.ok) prepared.delete(id);
@@ -269,9 +298,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       radioSeedRef.current = seed.id;
       setRadioLoading(true);
       try {
-        const res = await fetch(apiUrl(`/api/related?id=${encodeURIComponent(seed.id)}`));
-        if (!res.ok) throw new Error(String(res.status));
-        const data = (await res.json()) as { tracks?: Track[] };
+        const data = await getJSON<{ tracks?: Track[] }>(`/api/related?id=${encodeURIComponent(seed.id)}`);
         const existing = new Set(queueRef.current.map((t) => t.id));
         const fresh = filterRadio(
           (data.tracks ?? []).filter((t) => !existing.has(t.id)),
@@ -336,11 +363,31 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       // Downloaded tracks come from Cache Storage via the service worker; the check is synchronous.
       // Buffered = prefetched next track or one played a moment ago — served locally, instant start.
       const local = isDownloaded(t.id) || isBuffered(t.id);
-      a.src = local ? offlineUrl(t.id) : streamUrl(t.id);
+      const src = pickSrc(t.id);
       markUsed(t.id);
-      if (autoplay) {
-        const p = a.play();
-        if (p) p.catch(() => setIsPlaying(false));
+      if (src) {
+        a.src = src;
+        if (autoplay) {
+          const p = a.play();
+          if (p) p.catch(() => setIsPlaying(false));
+        }
+      } else {
+        // Native app, stream not resolved yet (first tap / cold start): resolve on the device, then play.
+        a.pause();
+        setIsBuffering(true);
+        void engineReady
+          .then((e) => (e ? e.resolveStreamUrl(t.id) : Promise.reject(new Error("engine"))))
+          .then((url) => {
+            if (loadedIdRef.current !== t.id) return;
+            a.src = url;
+            if (autoplay) a.play().catch(() => setIsPlaying(false));
+          })
+          .catch((err: unknown) => {
+            if (loadedIdRef.current !== t.id) return;
+            setIsBuffering(false);
+            setIsPlaying(false);
+            setError(tx("Не удалось загрузить аудио: {e}", { e: err instanceof Error ? err.message : String(err) }));
+          });
       }
       updateMediaMetadata(t);
       progressStore.set({ time: 0, duration: t.duration, buffered: 0 });
@@ -588,11 +635,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onPlay = () => {
       setIsPlaying(true);
+      nativePlaying(queueRef.current[indexRef.current] ?? null);
       applyMediaHandlers(actionsRef);
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
     };
     const onPause = () => {
       setIsPlaying(false);
+      if (!a.ended) nativePlaying(null);
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
     };
     const onWaiting = () => setIsBuffering(true);
@@ -609,6 +658,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (!retriedRef.current.has(t.id)) {
         // One retry with a freshly-resolved upstream URL.
         retriedRef.current.add(t.id);
+        if (isNative()) {
+          // The WebView couldn't play the stream URL directly (expired / refused) —
+          // download the file through the native HTTP stack and play it locally.
+          const id = t.id;
+          setIsBuffering(true);
+          void engineReady.then(async (e) => {
+            if (!e) return;
+            try {
+              await e.downloadToFile(id, "recent");
+              markBuffered(id);
+              if (loadedIdRef.current !== id) return;
+              a.src = e.fileSrc(id, "recent");
+              a.play().catch(() => setIsPlaying(false));
+            } catch {
+              if (loadedIdRef.current === id) a.dispatchEvent(new Event("error"));
+            }
+          });
+          return;
+        }
         a.src = `${streamUrl(t.id)}&fresh=1`;
         a.play().catch(() => setIsPlaying(false));
         return;
@@ -622,8 +690,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         a.pause();
         setIsPlaying(false);
         setError(tx("Не удалось загрузить аудио"));
-        fetch(prepareUrl(t.id))
-          .then((r) => r.json() as Promise<{ error?: string }>)
+        fetchJSON<{ error?: string }>(`/api/prepare?id=${encodeURIComponent(t.id)}`)
           .then((d) => {
             if (!d.error) return;
             if (/YT_BLOCKED|not a bot|LOGIN_REQUIRED/i.test(d.error)) {
@@ -712,7 +779,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Wake the serverless function + YouTube session in the background on launch.
-    fetch(apiUrl("/api/warm")).catch(() => {});
+    fetchJSON("/api/warm").catch(() => {});
     const stopLocal = initLibrarySync();
     void reconcileDownloads();
     void initAudioBuffer();

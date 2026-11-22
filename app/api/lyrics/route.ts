@@ -1,3 +1,4 @@
+import "@/lib/yt"; // configures the server YouTube provider
 import { getLyrics } from "@/lib/lyrics";
 import { VIDEO_ID_RE } from "@/lib/format";
 import { cachedJson, json, preflight } from "@/lib/http";

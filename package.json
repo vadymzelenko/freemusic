@@ -6,9 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "cap:sync": "cap sync",
+    "ios": "cap sync ios && cap open ios",
+    "android": "cap sync android && cap open android",
+    "bridge": "next build && next start -p 3939"
   },
   "dependencies": {
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
     "@supabase/supabase-js": "^2.119.2",
     "framer-motion": "^14.14.0",
     "lucide-react": "^1.77.0",
@@ -20,6 +26,9 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/ios": "^8.6.2",
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",

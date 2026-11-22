@@ -1,7 +1,6 @@
-import "server-only";
 import { YTNodes } from "youtubei.js";
 import { TTLCache } from "./ttl-cache";
-import { getYTBrowse } from "./yt";
+import { getYTBrowse, ytFetch } from "./yt-core";
 
 export interface LyricsResult {
   /** LRC text with [mm:ss.xx] timestamps (karaoke mode) */
@@ -28,7 +27,7 @@ type Lrc = { syncedLyrics?: string | null; plainLyrics?: string | null; instrume
 async function lrclib(title: string, artist: string, album: string | undefined, duration: number): Promise<LyricsResult | null> {
   const get = async (endpoint: "get" | "search", params: Record<string, string>) => {
     const url = `https://lrclib.net/api/${endpoint}?${new URLSearchParams(params)}`;
-    const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(6000) });
+    const res = await ytFetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
     return (await res.json()) as Lrc | Lrc[];
   };

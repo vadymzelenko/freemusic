@@ -242,7 +242,7 @@ export default function SettingsPage() {
         <Row
           icon={<Wrench />}
           title={tx("Проверить YouTube")}
-          onClick={() => window.open("/api/debug", "_blank")}
+          onClick={() => (window.location.href = "/debug")}
         />
       </Group>
 
