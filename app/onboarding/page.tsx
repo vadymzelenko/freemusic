@@ -316,7 +316,7 @@ export default function OnboardingPage() {
   const [langs, setLangs] = useState<string[]>([]);
   const [skipAds, setSkipAds] = useState(true);
   const [skipTalk, setSkipTalk] = useState(false);
-  const [smart, setSmart] = useState(true);
+  const [smart, setSmart] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // prefill from earlier answers (re-taking the survey) or the device locale
@@ -329,7 +329,7 @@ export default function OnboardingPage() {
       setLangs(st.radioPrefs.langs);
       setSkipAds(st.radioPrefs.skipAds);
       setSkipTalk(st.radioPrefs.skipTalk);
-      setSmart(st.radioSmart);
+      setSmart(st.radioPrefs.autoSwitch);
       setPicked(new Map(st.artists.filter((a) => a.id).map((a) => [a.id!, { id: a.id!, name: a.name, picture: a.thumbnail ?? "" }])));
     } else {
       const cc = guessCountry();
@@ -343,7 +343,7 @@ export default function OnboardingPage() {
   const titles = useMemo(
     () => [
       [tx("Что вы любите слушать?"), tx("Выберите жанры — по ним мы соберём ваши станции.")],
-      [tx("Любимые артисты"), tx("Отметьте хотя бы трёх. Умное радио будет ловить их песни в эфире.")],
+      [tx("Любимые артисты"), tx("Отметьте хотя бы трёх — их песни в эфире будут первыми в очереди.")],
       [tx("Откуда слушаем?"), tx("Станции каких стран показывать первыми. Можно выбрать несколько.")],
       [tx("Реклама и разговоры"), tx("Мы следим за эфиром и переключаем станцию, когда начинается то, чего вы не хотите слышать.")],
     ],
@@ -356,9 +356,8 @@ export default function OnboardingPage() {
     if (!skip) {
       st.setRadioTags(tags.length ? tags : st.radioTags);
       for (const a of picked.values()) st.followArtist({ id: a.id, name: a.name, thumbnail: a.picture });
-      st.setRadioSmart(smart);
     }
-    st.setRadioPrefs(skip ? { surveyed: true } : { countries, langs, skipAds, skipTalk, surveyed: true });
+    st.setRadioPrefs(skip ? { surveyed: true } : { countries, langs, skipAds, skipTalk, autoSwitch: smart, surveyed: true });
     st.setOnboarded(true);
     router.replace("/");
   };
@@ -450,8 +449,8 @@ export default function OnboardingPage() {
                   on={smart}
                   onClick={() => setSmart(!smart)}
                   icon={Sparkles}
-                  title={tx("Умное радио")}
-                  text={tx("Если на другой станции только что началась ваша песня или артист — перенесём вас туда.")}
+                  title={tx("Автопереход на ваши песни")}
+                  text={tx("Если на другой станции только что началась ваша песня или артист — сразу перенесём вас туда. Выключено — просто покажем подсказку.")}
                 />
                 <p className="pt-2 text-[12.5px] leading-snug text-subtle">
                   {tx("Распознаём по данным, которые станции передают в эфире. Не все станции их отправляют, поэтому иногда реклама может проскочить.")}

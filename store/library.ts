@@ -24,7 +24,7 @@ export interface LibraryData {
   theme: string;
   /** UI language; "" = follow the device. Synced. */
   lang: string;
-  /** Radio: favourite stations (full objects for instant display), genres to scan, smart switching. Synced. */
+  /** Radio: favourite stations (full objects for instant display), genres to scan. `radioSmart` is legacy (see radioPrefs.autoSwitch). Synced. */
   radioFavs: Station[];
   radioTags: string[];
   radioSmart: boolean;
@@ -47,6 +47,10 @@ export interface RadioPrefs {
   skipTalk: boolean;
   /** finished the taste survey */
   surveyed: boolean;
+  /** song queue: only songs that started at most this many seconds ago (0 = any) */
+  freshness: number;
+  /** jump automatically when your song / artist starts elsewhere (otherwise: just suggest) */
+  autoSwitch: boolean;
 }
 
 interface LibraryState extends LibraryData {
@@ -97,8 +101,8 @@ export const EMPTY_LIBRARY: LibraryData = {
   lang: "",
   radioFavs: [],
   radioTags: ["rock", "pop", "80s"],
-  radioSmart: true,
-  radioPrefs: { countries: [], langs: [], skipAds: true, skipTalk: false, surveyed: false },
+  radioSmart: false,
+  radioPrefs: { countries: [], langs: [], skipAds: true, skipTalk: false, surveyed: false, freshness: 60, autoSwitch: false },
   radioHistory: [],
   lastQueue: { tracks: [], index: 0, radio: true },
 };

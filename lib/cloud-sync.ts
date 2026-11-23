@@ -458,7 +458,7 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
     lang: st?.ui_prefs?.lang ?? "",
     radioFavs: st?.ui_prefs?.radioFavs ?? [],
     radioTags: st?.ui_prefs?.radioTags ?? EMPTY_LIBRARY.radioTags,
-    radioSmart: st?.ui_prefs?.radioSmart ?? true,
+    radioSmart: st?.ui_prefs?.radioSmart ?? false,
     radioPrefs: { ...EMPTY_LIBRARY.radioPrefs, ...st?.ui_prefs?.radioPrefs },
     radioHistory: st?.ui_prefs?.radioHistory ?? [],
     lastQueue: st?.last_queue?.tracks ? st.last_queue : EMPTY_LIBRARY.lastQueue,
