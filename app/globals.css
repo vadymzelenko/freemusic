@@ -210,3 +210,9 @@ html[data-theme="sepia"] {
   --color-muted: #6d5c49;
   --color-subtle: #a08e79;
 }
+
+/* radio: scrolling song title on the tuner display */
+@keyframes marquee {
+  0%, 12% { transform: translateX(0); }
+  88%, 100% { transform: translateX(calc(-100% + 18rem)); }
+}

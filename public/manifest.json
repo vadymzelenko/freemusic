@@ -3,7 +3,7 @@
   "short_name": "vzMusic",
   "description": "Music player · Музыкальный плеер · Odtwarzacz muzyki",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/radio",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -35,6 +35,18 @@
     }
   ],
   "shortcuts": [
+    {
+      "name": "Радио",
+      "short_name": "Радио",
+      "url": "/radio",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
     {
       "name": "Поиск",
       "short_name": "Поиск",

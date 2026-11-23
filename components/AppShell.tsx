@@ -6,6 +6,7 @@ import { TabBar } from "@/components/TabBar";
 import { Sidebar } from "@/components/Sidebar";
 import { MiniPlayer } from "@/components/player/MiniPlayer";
 import { PlayerBar } from "@/components/player/PlayerBar";
+import { RadioBar } from "@/components/radio/RadioBar";
 import { FullPlayer } from "@/components/player/FullPlayer";
 import { TrackActionsSheet } from "@/components/TrackActionsSheet";
 import { PlaylistPickerSheet } from "@/components/PlaylistPickerSheet";
@@ -52,6 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
       <MiniPlayer />
       <PlayerBar />
+      <RadioBar />
       <TabBar />
       <FullPlayer />
       <TrackActionsSheet />
