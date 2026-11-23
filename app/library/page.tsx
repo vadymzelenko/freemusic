@@ -168,7 +168,7 @@ export default function LibraryPage() {
           {liked.length ? (
             <>
               <p className="mt-2 px-4 text-[12.5px] text-subtle md:px-0">
-                {tx("Умное радио переключит на станцию, где начнётся одна из этих песен.")}
+                {tx("Когда одна из этих песен начнётся в эфире, она окажется первой в очереди.")}
               </p>
               <div className="mt-1 md:grid md:grid-cols-2 md:gap-x-4">
                 {liked.map((t) => (

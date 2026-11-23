@@ -4,6 +4,7 @@ import { tx } from "@/lib/i18n";
 import { BarChart3, ChevronRight, History, ListChecks, Music2, ThumbsDown } from "lucide-react";
 import Link from "next/link";
 import { AccountCard } from "@/components/AccountCard";
+import { FreshnessPicker } from "@/components/radio/SongQueue";
 import { BackButton } from "@/components/BackButton";
 import { Cover } from "@/components/ui/Cover";
 import { flag, tagLabel } from "@/lib/radio/types";
@@ -84,8 +85,6 @@ export default function SettingsPage() {
   const plays = useLibrary((s) => s.plays.length);
   const clearHistory = useLibrary((s) => s.clearHistory);
   const clearRadioHistory = useLibrary((s) => s.clearRadioHistory);
-  const smart = useLibrary((s) => s.radioSmart);
-  const setSmart = useLibrary((s) => s.setRadioSmart);
   const prefs = useLibrary((s) => s.radioPrefs);
   const setPrefs = useLibrary((s) => s.setRadioPrefs);
   const tags = useLibrary((s) => s.radioTags);
@@ -161,11 +160,16 @@ export default function SettingsPage() {
       </Group>
 
       <Group title={tx("Эфир")}>
+        <div className="px-4 py-3">
+          <div className="text-[15px]">{tx("Очередь песен")}</div>
+          <div className="mb-2.5 text-[12.5px] text-subtle">{tx("Показывать песни, которые начались не позже чем…")}</div>
+          <FreshnessPicker />
+        </div>
         <Toggle
-          title={tx("Умное радио")}
-          hint={tx("Переносит туда, где начинается ваша песня")}
-          on={smart}
-          onChange={() => setSmart(!smart)}
+          title={tx("Автопереход на ваши песни")}
+          hint={tx("Выключено — только подсказка внизу")}
+          on={prefs.autoSwitch}
+          onChange={() => setPrefs({ autoSwitch: !prefs.autoSwitch })}
         />
         <Toggle
           title={tx("Уходить от рекламы")}

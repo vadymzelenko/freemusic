@@ -14,7 +14,8 @@ export interface Station {
   votes: number;
 }
 
-export type AirKind = "music" | "ad" | "talk";
+/** music = a real "Artist - Title"; unknown = station only sends its name / slogan */
+export type AirKind = "music" | "ad" | "talk" | "unknown";
 
 export interface NowPlaying {
   /** raw StreamTitle */
@@ -29,12 +30,20 @@ const AD_WORDS =
   /\b(werbung|reklama|reklamy|reklam|реклама|рекламн\w*|advert\w*|commercials?|ad ?break|anzeige|publicit[eé]|pubblicit[aà]|publicidad|reclame|sponsor\w*|spot ?publicitaire)\b/i;
 const TALK_WORDS = /\b(news|nachrichten|новости|wiadomości|informacje|weather|wetter|погода|traffic|verkehr|jingle|station id|live show|interview)\b/i;
 
-/** Classifies a StreamTitle (+ ad marker) for the station called `stationName`. */
+const squash = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+
+/**
+ * Classifies a StreamTitle (+ ad marker) for the station called `stationName`.
+ * Conservative on purpose: only explicit markers / words count as ad or talk,
+ * so the player never jumps away from music because of a guess.
+ */
 export function classify(raw: string, adMarker: boolean, stationName = ""): NowPlaying {
   const np = splitStreamTitle(raw);
   let kind: AirKind = "music";
+  const st = squash(stationName).slice(0, 10);
   if (adMarker || AD_WORDS.test(raw)) kind = "ad";
-  else if (!np.artist || TALK_WORDS.test(raw) || (stationName && raw.toLowerCase().includes(stationName.toLowerCase().slice(0, 12)))) kind = "talk";
+  else if (TALK_WORDS.test(raw)) kind = "talk";
+  else if (!np.artist || (st.length >= 4 && (squash(np.artist).includes(st) || squash(raw).startsWith(st)))) kind = "unknown";
   return { ...np, kind };
 }
 

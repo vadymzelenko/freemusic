@@ -1,9 +1,9 @@
 "use client";
 
-import { Flame, Loader2, Megaphone, RadioTower, RefreshCw, Search as SearchIcon, Sparkles, X } from "lucide-react";
+import { Loader2, RadioTower, RefreshCw, Search as SearchIcon, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRadio } from "@/components/radio/RadioProvider";
-import { HotCard, npLine, StationRow } from "@/components/radio/StationRow";
+import { npLine, StationRow } from "@/components/radio/StationRow";
 import { cn } from "@/lib/cn";
 import { tx } from "@/lib/i18n";
 import { pseudoFrequency, RADIO_ERAS, RADIO_GENRES, type Station } from "@/lib/radio/types";
@@ -124,53 +124,23 @@ function Tuner() {
 
 export default function RadioPage() {
   const r = useRadio();
-  const smart = useLibrary((s) => s.radioSmart);
-  const setSmart = useLibrary((s) => s.setRadioSmart);
   const tags = useLibrary((s) => s.radioTags);
   const toggleTag = useLibrary((s) => s.toggleRadioTag);
   const favs = useLibrary((s) => s.radioFavs);
-  const skipAds = useLibrary((s) => s.radioPrefs.skipAds);
-  const setPrefs = useLibrary((s) => s.setRadioPrefs);
   const [q, setQ] = useState("");
   const dq = useDebounced(q.trim(), 350);
   const found = useApi<{ stations: Station[] }>(dq ? `/api/radio/search?q=${encodeURIComponent(dq)}&limit=30` : null, { keep: true });
-
-  const hot = r.ranked.filter((s) => (r.matches[s.id]?.score ?? 0) >= 50);
 
   return (
     <div className="pb-4">
       <header className="flex flex-wrap items-end justify-between gap-3 px-4 pt-6 pb-4 md:px-0">
         <div>
           <div className="flex items-center gap-2 whitespace-nowrap text-[13px] text-subtle">
-            <RadioTower className="h-4 w-4 shrink-0" /> {tx("{n} станций рядом с вашим вкусом", { n: r.pool.length })}
+            <RadioTower className="h-4 w-4 shrink-0" /> {tx("Крутите шкалу или выберите станцию")}
           </div>
           <h1 className="text-[28px] font-bold leading-tight tracking-tight md:text-[34px]">{tx("Эфир")}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setSmart(!smart)}
-            aria-pressed={smart}
-            className={cn(
-              "flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[13px] font-medium transition-colors",
-              smart ? "border-amber-300/60 bg-amber-300 text-black" : "border-line bg-card text-muted",
-            )}
-            title={tx("Само переключается туда, где начинается ваша песня")}
-          >
-            <Sparkles className="h-4 w-4" /> {tx("Умное радио")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setPrefs({ skipAds: !skipAds })}
-            aria-pressed={skipAds}
-            className={cn(
-              "flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[13px] font-medium transition-colors",
-              skipAds ? "border-red-400/50 bg-red-500/15 text-red-300" : "border-line bg-card text-muted",
-            )}
-            title={tx("Переключать станцию, когда начинается реклама")}
-          >
-            <Megaphone className="h-4 w-4" /> {tx("Без рекламы")}
-          </button>
           <button
             type="button"
             onClick={r.refresh}
@@ -183,25 +153,6 @@ export default function RadioPage() {
       </header>
 
       <Tuner />
-
-      {smart && (
-        <p className="mx-4 mt-3 text-[12.5px] leading-snug text-subtle md:mx-0">
-          {tx("Умное радио следит за {n} станциями и переключает туда, где прямо сейчас начинается ваш трек или артист.", { n: r.pool.length })}
-        </p>
-      )}
-
-      {hot.length > 0 && (
-        <section className="mt-7">
-          <h2 className="mb-3 flex items-center gap-2 px-4 text-[19px] font-bold tracking-tight md:px-0">
-            <Flame className="h-5 w-5 text-amber-400" /> {tx("Ваше сейчас в эфире")}
-          </h2>
-          <div className="no-scrollbar flex snap-x gap-3 overflow-x-auto px-4 pb-1 md:px-0">
-            {hot.map((s) => (
-              <HotCard key={s.id} s={s} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {favs.length > 0 && (
         <section className="mt-7">

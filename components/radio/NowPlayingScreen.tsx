@@ -26,8 +26,9 @@ import { useApi } from "@/lib/use-api";
 import { useNow } from "@/lib/use-now";
 import { useLibrary, useReaction } from "@/store/library";
 import { useUI } from "@/store/ui";
-import { useRadio } from "./RadioProvider";
-import { FavButton, HotCard, sinceLabel } from "./StationRow";
+import { freshOnly, useRadio } from "./RadioProvider";
+import { FavButton, sinceLabel } from "./StationRow";
+import { dedupe, QueueRow } from "./SongQueue";
 import { StationLogo } from "./StationLogo";
 
 type MetaTrack = { cover: string; duration: number; album: string } | null;
@@ -125,8 +126,6 @@ export function NowPlayingScreen() {
   const setOpen = useUI((s) => s.setPlayerOpen);
   const r = useRadio();
   const now = useNow(1000);
-  const smart = useLibrary((s) => s.radioSmart);
-  const setSmart = useLibrary((s) => s.setRadioSmart);
   const prefs = useLibrary((s) => s.radioPrefs);
   const setPrefs = useLibrary((s) => s.setRadioPrefs);
   const [lyrics, setLyrics] = useState(false);
@@ -146,7 +145,11 @@ export function NowPlayingScreen() {
     if (!s) setOpen(false);
   }, [s, setOpen]);
 
-  const hot = r.ranked.filter((x) => x.id !== s?.id && (r.matches[x.id]?.score ?? 0) >= 50).slice(0, 6);
+  const upNext = useMemo(
+    () => dedupe(freshOnly(r.queue, prefs.freshness, now)).filter((q) => q.station.id !== s?.id).slice(0, 4),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [r.queue, prefs.freshness, s?.id, Math.floor(now / 3000)],
+  );
   const song = isSong(np) ? np : null;
 
   return (
@@ -253,7 +256,7 @@ export function NowPlayingScreen() {
                 >
                   <RotateCcw className="h-6 w-6" />
                 </button>
-                <button type="button" onClick={() => r.step(-1)} className="flex h-14 w-14 items-center justify-center rounded-full text-fg active:scale-95" aria-label={tx("Предыдущая станция")}>
+                <button type="button" onClick={r.prev} className="flex h-14 w-14 items-center justify-center rounded-full text-fg active:scale-95" aria-label={tx("Предыдущая станция")}>
                   <SkipBack className="h-8 w-8 fill-current" />
                 </button>
                 <button
@@ -270,7 +273,7 @@ export function NowPlayingScreen() {
                     <Play className="ml-1 h-8 w-8 fill-current" />
                   )}
                 </button>
-                <button type="button" onClick={() => r.step(1)} className="flex h-14 w-14 items-center justify-center rounded-full text-fg active:scale-95" aria-label={tx("Следующая станция")}>
+                <button type="button" onClick={r.next} className="flex h-14 w-14 items-center justify-center rounded-full text-fg active:scale-95" aria-label={tx("Следующая песня")}>
                   <SkipForward className="h-8 w-8 fill-current" />
                 </button>
                 <button
@@ -294,17 +297,17 @@ export function NowPlayingScreen() {
               <div className="mt-6 grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setSmart(!smart)}
-                  aria-pressed={smart}
+                  onClick={() => setPrefs({ autoSwitch: !prefs.autoSwitch })}
+                  aria-pressed={prefs.autoSwitch}
                   className={cn(
                     "flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[12.5px] leading-tight transition-colors",
-                    smart ? "border-amber-300/50 bg-amber-300/15 text-fg" : "border-line text-muted",
+                    prefs.autoSwitch ? "border-amber-300/50 bg-amber-300/15 text-fg" : "border-line text-muted",
                   )}
                 >
-                  <Sparkles className={cn("h-5 w-5 shrink-0", smart && "text-amber-300")} />
+                  <Sparkles className={cn("h-5 w-5 shrink-0", prefs.autoSwitch && "text-amber-300")} />
                   <span>
-                    <b className="block text-[13px]">{tx("Умное радио")}</b>
-                    {tx("ловит ваши песни")}
+                    <b className="block text-[13px]">{tx("Автопереход")}</b>
+                    {tx("на ваши песни")}
                   </span>
                 </button>
                 <button
@@ -324,12 +327,12 @@ export function NowPlayingScreen() {
                 </button>
               </div>
 
-              {hot.length > 0 && !lyrics && (
+              {upNext.length > 0 && !lyrics && (
                 <section className="mt-7 mb-4">
-                  <h3 className="mb-2 text-[14px] font-semibold text-muted">{tx("Сейчас в эфире для вас")}</h3>
-                  <div className="no-scrollbar -mx-6 flex snap-x gap-3 overflow-x-auto px-6 pb-1">
-                    {hot.map((x) => (
-                      <HotCard key={x.id} s={x} />
+                  <h3 className="mb-1 text-[14px] font-semibold text-muted">{tx("Дальше в очереди")}</h3>
+                  <div className="-mx-6">
+                    {upNext.map((q) => (
+                      <QueueRow key={q.key} it={q} now={now} />
                     ))}
                   </div>
                 </section>
