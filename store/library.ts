@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { artistKey, type FollowedArtist, type PlayEvent, type Playlist, type Track } from "@/lib/types";
+import type { Station } from "@/lib/radio/types";
 
 export const MAX_PLAYS = 5000;
 
@@ -23,6 +24,10 @@ export interface LibraryData {
   theme: string;
   /** UI language; "" = follow the device. Synced. */
   lang: string;
+  /** Radio: favourite stations (full objects for instant display), genres to scan, smart switching. Synced. */
+  radioFavs: Station[];
+  radioTags: string[];
+  radioSmart: boolean;
   /** Last queue snapshot for session restore. */
   lastQueue: { tracks: Track[]; index: number; radio: boolean };
 }
@@ -42,6 +47,9 @@ interface LibraryState extends LibraryData {
   toggleSection: (id: string) => void;
   setTheme: (id: string) => void;
   setLang: (lang: string) => void;
+  toggleRadioFav: (s: Station) => void;
+  toggleRadioTag: (tag: string) => void;
+  setRadioSmart: (v: boolean) => void;
   recordPlay: (t: Track, listened: number, completed: boolean) => void;
   clearHistory: () => void;
   pushSearch: (q: string) => void;
@@ -66,6 +74,9 @@ export const EMPTY_LIBRARY: LibraryData = {
   hiddenSections: [],
   theme: "graphite",
   lang: "",
+  radioFavs: [],
+  radioTags: ["rock", "pop", "80s"],
+  radioSmart: true,
   lastQueue: { tracks: [], index: 0, radio: true },
 };
 
@@ -181,6 +192,17 @@ export const useLibrary = create<LibraryState>()(
 
       setTheme: (id) => set({ theme: id }),
       setLang: (lang) => set({ lang }),
+      toggleRadioFav: (st) =>
+        set((s) => ({
+          radioFavs: s.radioFavs.some((x) => x.id === st.id)
+            ? s.radioFavs.filter((x) => x.id !== st.id)
+            : [st, ...s.radioFavs].slice(0, 100),
+        })),
+      toggleRadioTag: (tag) =>
+        set((s) => ({
+          radioTags: s.radioTags.includes(tag) ? s.radioTags.filter((t) => t !== tag) : [...s.radioTags, tag].slice(0, 6),
+        })),
+      setRadioSmart: (v) => set({ radioSmart: v }),
 
       toggleSection: (id) =>
         set((s) => ({
@@ -232,6 +254,9 @@ export const useLibrary = create<LibraryState>()(
         hiddenSections: s.hiddenSections,
         theme: s.theme,
         lang: s.lang,
+        radioFavs: s.radioFavs,
+        radioTags: s.radioTags,
+        radioSmart: s.radioSmart,
         lastQueue: s.lastQueue,
       }),
       migrate: (persisted, version) => {

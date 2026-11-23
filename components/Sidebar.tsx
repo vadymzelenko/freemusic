@@ -1,13 +1,14 @@
 "use client";
 
 import { tx } from "@/lib/i18n";
-import { BarChart3, Download, House, Library, ListMusic, Plus, Search, Settings, ThumbsUp } from "lucide-react";
+import { BarChart3, RadioTower, Download, House, Library, ListMusic, Plus, Search, Settings, ThumbsUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { useHydrated, useLibrary } from "@/store/library";
 
 const NAV = [
+  { href: "/radio", label: "Радио", icon: RadioTower, match: (p: string) => p.startsWith("/radio") },
   { href: "/", label: "Главная", icon: House, match: (p: string) => p === "/" || p.startsWith("/artist") || p.startsWith("/album") },
   { href: "/search", label: "Поиск", icon: Search, match: (p: string) => p.startsWith("/search") || p.startsWith("/queue") },
   { href: "/library", label: "Медиатека", icon: Library, match: (p: string) => p === "/library" },

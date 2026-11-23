@@ -4,6 +4,7 @@ import { tx } from "@/lib/i18n";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useRadio } from "@/components/radio/RadioProvider";
 import { Cover } from "@/components/ui/Cover";
 import { copyTrackName, useHoldRepeat, useLongPress } from "@/lib/use-press";
 import { usePlayer, useProgress } from "./PlayerProvider";
@@ -24,10 +25,11 @@ export function MiniPlayer() {
   const prevPress = useHoldRepeat(prev, () => seekBy(-5));
   const nextPress = useHoldRepeat(next, () => seekBy(5));
   const pathname = usePathname();
+  const radio = useRadio();
 
   return (
     <AnimatePresence>
-      {current && pathname !== "/onboarding" && (
+      {current && pathname !== "/onboarding" && !radio.active && (
         <motion.div
           initial={{ y: 24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

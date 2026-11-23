@@ -581,8 +581,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   /* ---------------- audio element events (bound once) ---------------- */
 
   // Keep the latest callbacks in a ref so the listeners are attached exactly once.
-  const handlersRef = useRef({ loadIndex, refillRadio, updatePositionState });
-  handlersRef.current = { loadIndex, refillRadio, updatePositionState };
+  const handlersRef = useRef({ loadIndex, refillRadio, updatePositionState, updateMediaMetadata });
+  handlersRef.current = { loadIndex, refillRadio, updatePositionState, updateMediaMetadata };
 
   useEffect(() => {
     const a = audioRef.current;
@@ -651,6 +651,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onPlay = () => {
       setIsPlaying(true);
+      // the radio may have owned the lock screen — show the current track again
+      const playingNow = queueRef.current[indexRef.current];
+      if (playingNow) handlersRef.current.updateMediaMetadata(playingNow);
       nativePlaying(queueRef.current[indexRef.current] ?? null);
       applyMediaHandlers(actionsRef);
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";

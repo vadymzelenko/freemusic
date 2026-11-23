@@ -23,6 +23,7 @@ import { copyTrackName, useHoldRepeat, useLongPress } from "@/lib/use-press";
 import { useLibrary } from "@/store/library";
 import { useUI } from "@/store/ui";
 import { usePlayer } from "./PlayerProvider";
+import { useRadio } from "@/components/radio/RadioProvider";
 import { Scrubber } from "./Scrubber";
 
 /** Bottom player bar for tablets and desktops (replaces the mini player + tab bar). */
@@ -45,11 +46,12 @@ export function PlayerBar() {
   const liked = useLibrary((s) => (current ? s.likedIds.includes(current.id) : false));
   const toggleLike = useLibrary((s) => s.toggleLike);
   const setLyricsOpen = useUI((s) => s.setLyricsOpen);
+  const radioActive = useRadio().active;
   const copyPress = useLongPress(() => current && copyTrackName(current));
   const prevPress = useHoldRepeat(prev, () => seekBy(-5));
   const nextPress = useHoldRepeat(next, () => seekBy(5));
 
-  if (!current) return null;
+  if (!current || radioActive) return null;
   const VolIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
   return (

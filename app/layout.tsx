@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { AppShell } from "@/components/AppShell";
+import { RadioProvider } from "@/components/radio/RadioProvider";
 import { THEME_BOOT_SCRIPT } from "@/lib/themes";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter", display: "swap" });
@@ -51,7 +52,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans">
         <PlayerProvider>
-          <AppShell>{children}</AppShell>
+          <RadioProvider>
+            <AppShell>{children}</AppShell>
+          </RadioProvider>
         </PlayerProvider>
       </body>
     </html>

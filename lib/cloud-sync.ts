@@ -166,7 +166,10 @@ function diff(next: LibraryData, prev: LibraryData) {
     next.onboarded !== prev.onboarded ||
     next.hiddenSections !== prev.hiddenSections ||
     next.theme !== prev.theme ||
-    next.lang !== prev.lang
+    next.lang !== prev.lang ||
+    next.radioFavs !== prev.radioFavs ||
+    next.radioTags !== prev.radioTags ||
+    next.radioSmart !== prev.radioSmart
   ) {
     dirty.state = true;
   }
@@ -318,7 +321,14 @@ async function pushDirty(sb: SupabaseClient, user: User) {
             last_queue: s.lastQueue,
             search_history: s.searchHistory,
             onboarded: s.onboarded,
-            ui_prefs: { hiddenSections: s.hiddenSections, theme: s.theme, lang: s.lang },
+            ui_prefs: {
+              hiddenSections: s.hiddenSections,
+              theme: s.theme,
+              lang: s.lang,
+              radioFavs: s.radioFavs,
+              radioTags: s.radioTags,
+              radioSmart: s.radioSmart,
+            },
             updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id" },
@@ -434,7 +444,14 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
     last_queue?: LibraryData["lastQueue"];
     search_history?: string[];
     onboarded?: boolean;
-    ui_prefs?: { hiddenSections?: string[]; theme?: string; lang?: string } | null;
+    ui_prefs?: {
+      hiddenSections?: string[];
+      theme?: string;
+      lang?: string;
+      radioFavs?: LibraryData["radioFavs"];
+      radioTags?: string[];
+      radioSmart?: boolean;
+    } | null;
   } | null;
 
   return {
@@ -450,6 +467,9 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
     hiddenSections: st?.ui_prefs?.hiddenSections ?? [],
     theme: st?.ui_prefs?.theme ?? EMPTY_LIBRARY.theme,
     lang: st?.ui_prefs?.lang ?? "",
+    radioFavs: st?.ui_prefs?.radioFavs ?? [],
+    radioTags: st?.ui_prefs?.radioTags ?? EMPTY_LIBRARY.radioTags,
+    radioSmart: st?.ui_prefs?.radioSmart ?? true,
     lastQueue: st?.last_queue?.tracks ? st.last_queue : EMPTY_LIBRARY.lastQueue,
   };
 }
@@ -490,6 +510,9 @@ function merge(local: LibraryData, remote: LibraryData): LibraryData {
     hiddenSections: remote.hiddenSections.length ? remote.hiddenSections : local.hiddenSections,
     theme: remote.theme !== EMPTY_LIBRARY.theme ? remote.theme : local.theme,
     lang: remote.lang || local.lang,
+    radioFavs: [...remote.radioFavs, ...local.radioFavs.filter((x) => !remote.radioFavs.some((r) => r.id === x.id))],
+    radioTags: remote.radioTags.length ? remote.radioTags : local.radioTags,
+    radioSmart: remote.radioSmart,
     lastQueue: local.lastQueue.tracks.length ? local.lastQueue : remote.lastQueue,
   };
 }
@@ -510,6 +533,9 @@ function snapshot(): LibraryData {
     hiddenSections: s.hiddenSections,
     theme: s.theme,
     lang: s.lang,
+    radioFavs: s.radioFavs,
+    radioTags: s.radioTags,
+    radioSmart: s.radioSmart,
     lastQueue: s.lastQueue,
   };
 }
