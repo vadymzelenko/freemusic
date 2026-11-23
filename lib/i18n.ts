@@ -50,24 +50,6 @@ export function tx(key: string, vars?: Record<string, string | number>): string 
   return s;
 }
 
-/** Plural word for counts, per language. */
-export function pluralWord(n: number, kind: "track" | "artist"): string {
-  const a = Math.abs(n) % 100;
-  const b = a % 10;
-  if (current === "en") return kind === "track" ? (n === 1 ? "track" : "tracks") : n === 1 ? "artist" : "artists";
-  if (current === "pl") {
-    const forms = kind === "track" ? ["utwór", "utwory", "utworów"] : ["artysta", "artystów", "artystów"];
-    if (n === 1) return forms[0]!;
-    if (b >= 2 && b <= 4 && !(a >= 12 && a <= 14)) return forms[1]!;
-    return forms[2]!;
-  }
-  const forms = kind === "track" ? ["трек", "трека", "треков"] : ["артист", "артиста", "артистов"];
-  if (a > 10 && a < 20) return forms[2]!;
-  if (b > 1 && b < 5) return forms[1]!;
-  if (b === 1) return forms[0]!;
-  return forms[2]!;
-}
-
 export function dateLocale(): string {
   return current === "en" ? "en-GB" : current === "pl" ? "pl-PL" : "ru-RU";
 }

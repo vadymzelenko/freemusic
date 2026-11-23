@@ -8,7 +8,7 @@ import tls from "node:tls";
  * Reads at most one/two metadata intervals (a few KB–64 KB) and disconnects.
  */
 
-const UA = "Mozilla/5.0 (vzMusic radio; ICY metadata)";
+const UA = "Mozilla/5.0 (vzRadio; ICY metadata)";
 const MAX_BYTES = 300_000;
 
 function decodeMeta(buf: Buffer): string {
@@ -21,13 +21,20 @@ function decodeMeta(buf: Buffer): string {
   }
 }
 
-function parseStreamTitle(meta: string): string | null {
-  const m = /StreamTitle='([\s\S]*?)';/.exec(meta) ?? /StreamTitle='([\s\S]*)/.exec(meta);
-  const t = m?.[1]?.replace(/\0+$/, "").trim();
-  return t ? t : null;
+export interface IcyMeta {
+  title: string | null;
+  /** AdsWizz / Triton ad insertion marker in the metadata */
+  adMarker: boolean;
 }
 
-export function readIcyTitle(url: string, timeoutMs = 5000, redirects = 3): Promise<string | null> {
+function parseMeta(meta: string): IcyMeta {
+  const m = /StreamTitle='([\s\S]*?)';/.exec(meta) ?? /StreamTitle='([\s\S]*)/.exec(meta);
+  const t = m?.[1]?.replace(/\0+$/, "").trim();
+  const adMarker = /adw_ad='?true|insertionType='?(?:midroll|preroll)|\bad_id=|X-AD-/i.test(meta);
+  return { title: t ? t : null, adMarker };
+}
+
+export function readIcyMeta(url: string, timeoutMs = 5000, redirects = 3): Promise<IcyMeta | null> {
   return new Promise((resolve) => {
     let u: URL;
     try {
@@ -43,7 +50,7 @@ export function readIcyTitle(url: string, timeoutMs = 5000, redirects = 3): Prom
       : net.connect(port, u.hostname);
 
     let settled = false;
-    const finish = (v: string | null) => {
+    const finish = (v: IcyMeta | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -90,7 +97,7 @@ export function readIcyTitle(url: string, timeoutMs = 5000, redirects = 3): Prom
           settled = true;
           clearTimeout(timer);
           sock.destroy();
-          void readIcyTitle(next, timeoutMs, redirects - 1).then(resolve);
+          void readIcyMeta(next, timeoutMs, redirects - 1).then(resolve);
           return;
         }
         if (code !== 200) return finish(null);
@@ -108,12 +115,16 @@ export function readIcyTitle(url: string, timeoutMs = 5000, redirects = 3): Prom
         const len = buf[lenAt]! * 16;
         if (buf.length < lenAt + 1 + len) return;
         if (len > 0) {
-          const title = parseStreamTitle(decodeMeta(buf.subarray(lenAt + 1, lenAt + 1 + len)));
-          return finish(title);
+          return finish(parseMeta(decodeMeta(buf.subarray(lenAt + 1, lenAt + 1 + len))));
         }
         pos = lenAt + 1;
       }
-      finish(null);
+      finish({ title: null, adMarker: false });
     });
   });
+}
+
+/** Back-compat helper: just the title. */
+export async function readIcyTitle(url: string, timeoutMs = 5000): Promise<string | null> {
+  return (await readIcyMeta(url, timeoutMs))?.title ?? null;
 }

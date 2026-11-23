@@ -1,4 +1,4 @@
-import { artistKey } from "@/lib/types";
+import { artistKey, type Track } from "@/lib/types";
 import type { LibraryData } from "@/store/library";
 import { buildProfile } from "@/lib/recommend";
 import type { NowPlaying } from "./types";
@@ -75,4 +75,21 @@ export function matchNowPlaying(np: NowPlaying | null | undefined, taste: Taste)
   const aff = taste.artists.get(a);
   if (aff !== undefined) return { score: 50 + Math.round(aff * 30), kind: "artist" };
   return { score: 0, kind: "none" };
+}
+
+/** A song heard on air as a library Track (likes, history, stats). Stable id from artist+title. */
+export function songTrack(np: Pick<NowPlaying, "artist" | "title">, extra: Partial<Track> = {}): Track {
+  return {
+    id: `r:${key(np.artist, np.title)}`,
+    title: np.title,
+    artist: np.artist,
+    duration: 0,
+    cover: "",
+    ...extra,
+  };
+}
+
+/** Is this something worth calling a "song" (not an ad / talk / station id)? */
+export function isSong(np: NowPlaying | null | undefined): np is NowPlaying {
+  return !!np && np.kind === "music" && !!np.artist && !!np.title;
 }

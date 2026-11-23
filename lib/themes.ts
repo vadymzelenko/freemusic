@@ -31,12 +31,6 @@ export function applyTheme(id: string) {
   root.style.colorScheme = t.scheme;
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", t.bg));
   document.documentElement.style.backgroundColor = t.bg;
-  void import("@/lib/native/platform").then(({ isNative }) => {
-    if (!isNative()) return;
-    void import("@capacitor/core").then(({ SystemBars, SystemBarsStyle }) =>
-      SystemBars.setStyle({ style: t.scheme === "light" ? SystemBarsStyle.Light : SystemBarsStyle.Dark }).catch(() => {}),
-    );
-  });
 }
 
 /** Inline script for <head>: applies the saved theme before first paint (no flash). */

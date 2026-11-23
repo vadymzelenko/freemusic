@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Pause, Play, RotateCcw, SkipForward } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { cn } from "@/lib/cn";
 import { formatTime } from "@/lib/format";
@@ -13,24 +13,23 @@ import { StationLogo } from "./StationLogo";
 /** Bottom bar while the radio is the active source (phone: above the tab bar; tablet/desktop: full width). */
 export function RadioBar() {
   const r = useRadio();
-  const router = useRouter();
   const pathname = usePathname();
   const toast = useUI((s) => s.showToast);
+  const openPlayer = useUI((s) => s.setPlayerOpen);
 
   // announce smart switches
   useEffect(() => {
     if (!r.lastSwitch) return;
     const np = r.lastSwitch.np;
-    toast(
-      `${r.lastSwitch.to.name}: ${np ? `${np.artist ? `${np.artist} — ` : ""}${np.title}` : ""} · ${
-        r.lastSwitch.kind === "track" ? tx("ваш трек") : r.lastSwitch.kind === "artist" ? tx("ваш артист") : tx("лучше подходит")
-      }`,
-    );
+    const k = r.lastSwitch.kind;
+    const why =
+      k === "track" ? tx("ваш трек") : k === "artist" ? tx("ваш артист") : k === "ad" ? tx("ушли от рекламы") : k === "talk" ? tx("ушли от разговоров") : tx("лучше подходит");
+    toast(`${why} → ${r.lastSwitch.to.name}${np?.artist ? `: ${np.artist} — ${np.title}` : ""}`);
   }, [r.lastSwitch, toast]);
 
   if (!r.active || !r.station || pathname === "/onboarding") return null;
-  const np = r.nowPlaying[r.station.id];
-  const line = np ? `${np.artist ? `${np.artist} — ` : ""}${np.title}` : tx("Прямой эфир");
+  const np = r.current;
+  const line = np?.kind === "ad" ? tx("Реклама") : np ? `${np.artist ? `${np.artist} — ` : ""}${np.title}` : tx("Прямой эфир");
 
   return (
     <div
@@ -38,7 +37,7 @@ export function RadioBar() {
       style={{ left: "var(--sidebar-w)", bottom: "calc(var(--tabbar-h) + var(--safe-bottom) + 6px)" }}
     >
       <div className="relative mx-auto flex h-[var(--mini-h)] max-w-2xl items-center gap-3 rounded-xl border border-line bg-card/90 pl-2 pr-1 shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl md:max-w-none md:rounded-none md:border-0 md:bg-transparent md:px-5 md:shadow-none">
-        <button type="button" onClick={() => router.push("/radio")} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <button type="button" onClick={() => openPlayer(true)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <StationLogo station={r.station} className="h-11 w-11 md:h-14 md:w-14" />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 truncate text-[14px] font-medium leading-tight">

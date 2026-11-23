@@ -1,20 +1,16 @@
 "use client";
 
 import { tx } from "@/lib/i18n";
-import { BarChart3, ChevronRight, Download, History, Music2, ThumbsDown, Trash2, Wrench } from "lucide-react";
+import { BarChart3, ChevronRight, History, ListChecks, Music2, ThumbsDown } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { AccountCard } from "@/components/AccountCard";
 import { BackButton } from "@/components/BackButton";
 import { Cover } from "@/components/ui/Cover";
-import { removeAllDownloads, storageEstimate } from "@/lib/downloads";
-import { useDownloads } from "@/store/downloads";
-import { HOME_SECTIONS, useLibrary } from "@/store/library";
+import { flag, tagLabel } from "@/lib/radio/types";
+import { useLibrary } from "@/store/library";
 import { THEMES } from "@/lib/themes";
 import { cn } from "@/lib/cn";
 import { useUI } from "@/store/ui";
-
-const mb = (b: number) => (b >= 1e9 ? tx("{n} ГБ", { n: (b / 1e9).toFixed(1) }) : tx("{n} МБ", { n: Math.round(b / 1e6) }));
 
 function Row({
   icon,
@@ -87,22 +83,17 @@ export default function SettingsPage() {
   const dislikes = useLibrary((s) => s.dislikedIds.length);
   const plays = useLibrary((s) => s.plays.length);
   const clearHistory = useLibrary((s) => s.clearHistory);
-  const hidden = useLibrary((s) => s.hiddenSections);
-  const toggleSection = useLibrary((s) => s.toggleSection);
+  const clearRadioHistory = useLibrary((s) => s.clearRadioHistory);
+  const smart = useLibrary((s) => s.radioSmart);
+  const setSmart = useLibrary((s) => s.setRadioSmart);
+  const prefs = useLibrary((s) => s.radioPrefs);
+  const setPrefs = useLibrary((s) => s.setRadioPrefs);
+  const tags = useLibrary((s) => s.radioTags);
   const theme = useLibrary((s) => s.theme);
   const setTheme = useLibrary((s) => s.setTheme);
   const lang = useLibrary((s) => s.lang);
   const setLang = useLibrary((s) => s.setLang);
-  const downloads = useDownloads((s) => s.items);
   const toast = useUI((s) => s.showToast);
-  const [usage, setUsage] = useState<{ usage: number; quota: number } | null>(null);
-
-  const count = Object.keys(downloads).length;
-  const bytes = Object.values(downloads).reduce((s, d) => s + d.bytes, 0);
-
-  useEffect(() => {
-    void storageEstimate().then(setUsage);
-  }, [count]);
 
   return (
     <div>
@@ -169,19 +160,28 @@ export default function SettingsPage() {
         </div>
       </Group>
 
-      <Group title={tx("Главная — что показывать")}>
-        {HOME_SECTIONS.map((sec) => (
-          <Toggle
-            key={sec.id}
-            title={tx(sec.title)}
-            hint={sec.hint ? tx(sec.hint) : undefined}
-            on={!hidden.includes(sec.id)}
-            onChange={() => toggleSection(sec.id)}
-          />
-        ))}
+      <Group title={tx("Эфир")}>
+        <Toggle
+          title={tx("Умное радио")}
+          hint={tx("Переносит туда, где начинается ваша песня")}
+          on={smart}
+          onChange={() => setSmart(!smart)}
+        />
+        <Toggle
+          title={tx("Уходить от рекламы")}
+          hint={tx("Переключает на станцию, где играет музыка")}
+          on={prefs.skipAds}
+          onChange={() => setPrefs({ skipAds: !prefs.skipAds })}
+        />
+        <Toggle
+          title={tx("Только музыка")}
+          hint={tx("Также уходить от новостей и разговоров")}
+          on={prefs.skipTalk}
+          onChange={() => setPrefs({ skipTalk: !prefs.skipTalk })}
+        />
       </Group>
 
-      <Group title={tx("Рекомендации")}>
+      <Group title={tx("Ваш вкус")}>
         <Link href="/onboarding" className="flex items-center gap-3.5 px-4 py-3 active:bg-fg/[0.04]">
           <Music2 className="h-[18px] w-[18px] text-muted" />
           <div className="min-w-0 flex-1">
@@ -196,58 +196,30 @@ export default function SettingsPage() {
           <span className="text-[13px] text-subtle">{artists.length}</span>
           <ChevronRight className="h-4 w-4 text-subtle" />
         </Link>
-        <Row icon={<ThumbsDown />} title={tx("Не нравится")} value={dislikes} href="/library/disliked" />
+        <Row
+          icon={<ListChecks />}
+          title={tx("Пройти опрос заново")}
+          value={[tags.slice(0, 3).map((t) => tx(tagLabel(t))).join(", "), prefs.countries.map(flag).join("")].filter(Boolean).join(" · ")}
+          href="/onboarding"
+        />
+        <Row icon={<ThumbsDown />} title={tx("Не нравится")} value={dislikes} href="/library?tab=songs" />
         <Row icon={<BarChart3 />} title={tx("Статистика")} href="/stats" />
         <Row
           icon={<History />}
           title={tx("Очистить историю прослушиваний")}
           value={plays}
           onClick={() => {
-            if (confirm(tx("Удалить историю прослушиваний на этом устройстве? Рекомендации начнут учиться заново."))) {
+            if (confirm(tx("Удалить историю прослушиваний? Рекомендации начнут учиться заново."))) {
               clearHistory();
+              clearRadioHistory();
               toast(tx("История очищена"));
             }
           }}
         />
       </Group>
 
-      <Group title={tx("Загрузки")}>
-        <Row icon={<Download />} title={tx("Скачанное")} value={`${count} · ${mb(bytes)}`} href="/library/downloads" />
-        {usage && usage.quota > 0 && (
-          <div className="px-4 py-3">
-            <div className="mb-1.5 flex justify-between text-[12.5px] text-subtle">
-              <span>{tx("Занято на устройстве")}</span>
-              <span>
-                {mb(usage.usage)}{tx(" из ")}{mb(usage.quota)}
-              </span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-fg/10">
-              <div className="h-full bg-fg" style={{ width: `${Math.min(100, (usage.usage / usage.quota) * 100)}%` }} />
-            </div>
-          </div>
-        )}
-        <Row
-          icon={<Trash2 />}
-          title={tx("Удалить все загрузки")}
-          danger
-          onClick={() => {
-            if (count && confirm(tx("Удалить скачанные треки ({n})?", { n: count }))) {
-              void removeAllDownloads().then(() => toast(tx("Загрузки удалены")));
-            }
-          }}
-        />
-      </Group>
-
-      <Group title={tx("Диагностика")}>
-        <Row
-          icon={<Wrench />}
-          title={tx("Проверить YouTube")}
-          onClick={() => (window.location.href = "/debug")}
-        />
-      </Group>
-
       <p className="px-5 pt-6 text-[12px] leading-relaxed text-subtle">
-        {tx("Лайки, плейлисты, артисты и история хранятся на устройстве и синхронизируются с облаком после входа. Скачанные треки хранятся только на этом устройстве.")}
+        {tx("Любимые станции, песни, ответы опроса и история хранятся на устройстве и синхронизируются с облаком после входа. Звук идёт напрямую от радиостанций, мы ничего не записываем.")}
       </p>
     </div>
   );

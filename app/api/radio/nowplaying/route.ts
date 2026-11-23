@@ -1,6 +1,6 @@
 import { stationsByIds } from "@/lib/radio/browser";
-import { readIcyTitle } from "@/lib/radio/icy";
-import { splitStreamTitle, type NowPlaying } from "@/lib/radio/types";
+import { readIcyMeta } from "@/lib/radio/icy";
+import { classify, type NowPlaying } from "@/lib/radio/types";
 import { TTLCache } from "@/lib/ttl-cache";
 import { cachedJson, json, preflight } from "@/lib/http";
 
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const cache = new TTLCache<NowPlaying | null>(15_000, 5000);
+const cache = new TTLCache<NowPlaying | null>(8_000, 5000);
 
 async function pool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -42,8 +42,11 @@ export const GET = cachedJson("radio-nowplaying", "no-store", async (p) => {
       return;
     }
     // HLS streams carry titles in segments (ID3), not ICY — skipped for now
-    const raw = s.hls ? null : await readIcyTitle(s.url, 4500);
-    const np = raw && !/^(?:-|unknown|n\/a)$/i.test(raw.trim()) ? splitStreamTitle(raw) : null;
+    const meta = s.hls ? null : await readIcyMeta(s.url, 4500);
+    const raw = meta?.title ?? "";
+    let np: NowPlaying | null = null;
+    if (meta?.adMarker) np = { raw, artist: "", title: raw, kind: "ad" };
+    else if (raw && !/^(?:-|unknown|n\/a)$/i.test(raw)) np = classify(raw, false, s.name);
     cache.set(s.id, np);
     items[s.id] = np;
   });
