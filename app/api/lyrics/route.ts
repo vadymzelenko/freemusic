@@ -1,18 +1,18 @@
-import "@/lib/yt"; // configures the server YouTube provider
 import { getLyrics } from "@/lib/lyrics";
-import { VIDEO_ID_RE } from "@/lib/format";
 import { cachedJson, json, preflight } from "@/lib/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** ?artist=&title=&duration= → synced (LRC) or plain lyrics from LRCLIB */
 export const GET = cachedJson("lyrics", "public, s-maxage=604800, stale-while-revalidate=2592000", async (p) => {
-  const id = p.get("id") ?? "";
-  if (!VIDEO_ID_RE.test(id)) return json({ error: "Invalid id" }, { status: 400 });
+  const artist = (p.get("artist") ?? "").slice(0, 120);
+  const title = (p.get("title") ?? "").slice(0, 160);
+  if (!title) return json({ error: "title required" }, { status: 400 });
   return getLyrics({
-    id,
-    title: p.get("title") ?? "",
-    artist: p.get("artist") ?? "",
+    id: `${artist.toLowerCase()}|${title.toLowerCase()}`,
+    title,
+    artist,
     album: p.get("album") || undefined,
     duration: Number(p.get("duration")) || 0,
   });

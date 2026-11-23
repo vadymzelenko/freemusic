@@ -5,7 +5,6 @@ import { create } from "zustand";
 import type { FollowedArtist, PlayEvent, Playlist, Track } from "@/lib/types";
 import { getSupabase } from "@/lib/supabase";
 import { tx } from "@/lib/i18n";
-import { isNative } from "@/lib/native/platform";
 import { EMPTY_LIBRARY, MAX_PLAYS, useLibrary, type LibraryData } from "@/store/library";
 
 /*
@@ -42,26 +41,10 @@ function friendly(e: unknown): string {
 
 export const useAuth = create<AuthState>(() => ({ user: null, ready: false, loaded: false, status: "off", error: null }));
 
-/** Deep link the native app is opened with after Google sign-in (registered in AndroidManifest / Info.plist). */
-export const NATIVE_AUTH_REDIRECT = "com.vzmusic.app://auth-callback";
 
 export async function signInWithGoogle(): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
-  if (isNative()) {
-    // Google forbids sign-in inside WebViews → use the system browser, come back via the deep link.
-    const { data, error } = await sb.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: NATIVE_AUTH_REDIRECT, skipBrowserRedirect: true },
-    });
-    if (error || !data.url) {
-      useAuth.setState({ status: "error", error: error?.message ?? "OAuth" });
-      return;
-    }
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({ url: data.url, presentationStyle: "popover" });
-    return;
-  }
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: `${window.location.origin}/library` },
@@ -169,7 +152,9 @@ function diff(next: LibraryData, prev: LibraryData) {
     next.lang !== prev.lang ||
     next.radioFavs !== prev.radioFavs ||
     next.radioTags !== prev.radioTags ||
-    next.radioSmart !== prev.radioSmart
+    next.radioSmart !== prev.radioSmart ||
+    next.radioPrefs !== prev.radioPrefs ||
+    next.radioHistory !== prev.radioHistory
   ) {
     dirty.state = true;
   }
@@ -328,6 +313,8 @@ async function pushDirty(sb: SupabaseClient, user: User) {
               radioFavs: s.radioFavs,
               radioTags: s.radioTags,
               radioSmart: s.radioSmart,
+              radioPrefs: s.radioPrefs,
+              radioHistory: s.radioHistory.slice(0, 30),
             },
             updated_at: new Date().toISOString(),
           },
@@ -451,6 +438,8 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
       radioFavs?: LibraryData["radioFavs"];
       radioTags?: string[];
       radioSmart?: boolean;
+      radioPrefs?: Partial<LibraryData["radioPrefs"]>;
+      radioHistory?: LibraryData["radioHistory"];
     } | null;
   } | null;
 
@@ -470,6 +459,8 @@ async function fetchRemote(sb: SupabaseClient, uid: string): Promise<LibraryData
     radioFavs: st?.ui_prefs?.radioFavs ?? [],
     radioTags: st?.ui_prefs?.radioTags ?? EMPTY_LIBRARY.radioTags,
     radioSmart: st?.ui_prefs?.radioSmart ?? true,
+    radioPrefs: { ...EMPTY_LIBRARY.radioPrefs, ...st?.ui_prefs?.radioPrefs },
+    radioHistory: st?.ui_prefs?.radioHistory ?? [],
     lastQueue: st?.last_queue?.tracks ? st.last_queue : EMPTY_LIBRARY.lastQueue,
   };
 }
@@ -513,6 +504,14 @@ function merge(local: LibraryData, remote: LibraryData): LibraryData {
     radioFavs: [...remote.radioFavs, ...local.radioFavs.filter((x) => !remote.radioFavs.some((r) => r.id === x.id))],
     radioTags: remote.radioTags.length ? remote.radioTags : local.radioTags,
     radioSmart: remote.radioSmart,
+    radioPrefs: {
+      ...(remote.radioPrefs.surveyed ? remote.radioPrefs : local.radioPrefs),
+      surveyed: remote.radioPrefs.surveyed || local.radioPrefs.surveyed,
+    },
+    radioHistory: [...local.radioHistory, ...remote.radioHistory]
+      .filter((h, i, arr) => arr.findIndex((x) => x.s.id === h.s.id) === i)
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 30),
     lastQueue: local.lastQueue.tracks.length ? local.lastQueue : remote.lastQueue,
   };
 }
@@ -536,6 +535,8 @@ function snapshot(): LibraryData {
     radioFavs: s.radioFavs,
     radioTags: s.radioTags,
     radioSmart: s.radioSmart,
+    radioPrefs: s.radioPrefs,
+    radioHistory: s.radioHistory,
     lastQueue: s.lastQueue,
   };
 }
@@ -633,32 +634,6 @@ export function initCloudSync(): () => void {
   const onOnline = () => void flush();
   window.addEventListener("online", onOnline);
 
-  // Native app: finish Google sign-in when the system browser hands control back via the deep link.
-  let removeUrlListener: (() => void) | null = null;
-  if (isNative()) {
-    void import("@capacitor/app").then(({ App }) =>
-      App.addListener("appUrlOpen", async ({ url }) => {
-        if (!url.startsWith(NATIVE_AUTH_REDIRECT)) return;
-        const params = new URL(url.replace("#", "?")).searchParams;
-        const code = params.get("code");
-        try {
-          if (code) {
-            const { error } = await sb.auth.exchangeCodeForSession(code);
-            if (error) throw error;
-          } else if (params.get("error_description")) {
-            throw new Error(params.get("error_description")!);
-          }
-        } catch (e) {
-          useAuth.setState({ status: "error", error: e instanceof Error ? e.message : String(e) });
-        } finally {
-          const { Browser } = await import("@capacitor/browser");
-          void Browser.close().catch(() => {});
-        }
-      }).then((h) => {
-        removeUrlListener = () => void h.remove();
-      }),
-    );
-  }
 
   // Changes made on another device arrive via Supabase Realtime (tables are added to the
   // publication in schema.sql); a slow poll is the fallback.
@@ -688,7 +663,6 @@ export function initCloudSync(): () => void {
   }, 60_000);
 
   return () => {
-    removeUrlListener?.();
     unsubAuthRt();
     if (channel) void sb.removeChannel(channel);
     clearInterval(poll);

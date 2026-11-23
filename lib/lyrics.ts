@@ -1,17 +1,16 @@
-import { YTNodes } from "youtubei.js";
 import { TTLCache } from "./ttl-cache";
-import { getYTBrowse, ytFetch } from "./yt-core";
+
 
 export interface LyricsResult {
   /** LRC text with [mm:ss.xx] timestamps (karaoke mode) */
   synced?: string;
   plain?: string;
   instrumental?: boolean;
-  source?: "lrclib" | "youtube";
+  source?: "lrclib";
 }
 
 const cache = new TTLCache<LyricsResult>(24 * 60 * 60 * 1000, 2000);
-const UA = "vzMusic/1.0 (personal music player)";
+const UA = "vzRadio/1.0 (lyrics lookup)";
 
 /** Strip "(Remastered 2021)", "- Live", "feat. X" etc. — LRCLIB matches clean titles better. */
 function cleanTitle(t: string): string {
@@ -27,7 +26,7 @@ type Lrc = { syncedLyrics?: string | null; plainLyrics?: string | null; instrume
 async function lrclib(title: string, artist: string, album: string | undefined, duration: number): Promise<LyricsResult | null> {
   const get = async (endpoint: "get" | "search", params: Record<string, string>) => {
     const url = `https://lrclib.net/api/${endpoint}?${new URLSearchParams(params)}`;
-    const res = await ytFetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(6000) });
+    const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
     return (await res.json()) as Lrc | Lrc[];
   };
@@ -56,20 +55,12 @@ async function lrclib(title: string, artist: string, album: string | undefined, 
   return null;
 }
 
-async function youtube(id: string): Promise<LyricsResult | null> {
-  const yt = await getYTBrowse();
-  const shelf = await yt.music.getLyrics(id);
-  const text = shelf?.is(YTNodes.MusicDescriptionShelf) ? shelf.description.toString() : "";
-  return text ? { plain: text, source: "youtube" } : null;
-}
 
 export async function getLyrics(q: { id: string; title: string; artist: string; album?: string; duration: number }): Promise<LyricsResult> {
   const hit = cache.get(q.id);
   if (hit) return hit;
   const result =
-    (await lrclib(q.title, q.artist, q.album, q.duration).catch(() => null)) ??
-    (await youtube(q.id).catch(() => null)) ??
-    {};
+    (await lrclib(q.title, q.artist, q.album, q.duration).catch(() => null)) ?? {};
   cache.set(q.id, result);
   return result;
 }

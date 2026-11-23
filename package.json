@@ -1,22 +1,14 @@
 {
-  "name": "freemusic",
+  "name": "vzradio",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit",
-    "cap:sync": "cap sync",
-    "ios": "cap sync ios && cap open ios",
-    "android": "cap sync android && cap open android",
-    "bridge": "next build && next start -p 3939"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@capacitor/app": "^8.1.2",
-    "@capacitor/browser": "^8.0.5",
-    "@capacitor/core": "^8.6.2",
-    "@capacitor/filesystem": "^8.1.5",
     "@supabase/supabase-js": "^2.119.2",
     "framer-motion": "^14.14.0",
     "hls.js": "^1.7.4",
@@ -25,14 +17,9 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
-    "undici": "^7.30.2",
-    "youtubei.js": "^18.3.0",
     "zustand": "^5.1.0"
   },
   "devDependencies": {
-    "@capacitor/android": "^8.6.2",
-    "@capacitor/cli": "^8.6.2",
-    "@capacitor/ios": "^8.6.2",
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",

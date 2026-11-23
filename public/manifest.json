@@ -1,9 +1,9 @@
 {
-  "name": "vzMusic",
-  "short_name": "vzMusic",
-  "description": "Music player · Музыкальный плеер · Odtwarzacz muzyki",
+  "name": "vzRadio",
+  "short_name": "vzRadio",
+  "description": "Radio from all over the world · Радио со всего мира · Radio z całego świata",
   "id": "/",
-  "start_url": "/radio",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -36,8 +36,20 @@
   ],
   "shortcuts": [
     {
-      "name": "Радио",
-      "short_name": "Радио",
+      "name": "Для вас",
+      "short_name": "Для вас",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Эфир",
+      "short_name": "Эфир",
       "url": "/radio",
       "icons": [
         {
@@ -48,9 +60,9 @@
       ]
     },
     {
-      "name": "Поиск",
-      "short_name": "Поиск",
-      "url": "/search",
+      "name": "Обзор",
+      "short_name": "Обзор",
+      "url": "/explore",
       "icons": [
         {
           "src": "/icons/icon-192.png",
@@ -60,33 +72,9 @@
       ]
     },
     {
-      "name": "Скачанное",
-      "short_name": "Скачанное",
-      "url": "/library/downloads",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Любимые треки",
-      "short_name": "Любимые",
-      "url": "/library/liked",
-      "icons": [
-        {
-          "src": "/icons/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Статистика",
-      "short_name": "Статистика",
-      "url": "/stats",
+      "name": "Мои станции",
+      "short_name": "Станции",
+      "url": "/library",
       "icons": [
         {
           "src": "/icons/icon-192.png",

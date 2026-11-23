@@ -1,43 +1,15 @@
 "use client";
 
-import { Flame, Loader2, Pause, Play, RadioTower, RefreshCw, Search as SearchIcon, Sparkles, Star, X } from "lucide-react";
+import { Flame, Loader2, Megaphone, RadioTower, RefreshCw, Search as SearchIcon, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRadio } from "@/components/radio/RadioProvider";
-import { StationLogo } from "@/components/radio/StationLogo";
+import { HotCard, npLine, StationRow } from "@/components/radio/StationRow";
 import { cn } from "@/lib/cn";
-import { formatTime } from "@/lib/format";
 import { tx } from "@/lib/i18n";
-import type { Match } from "@/lib/radio/match";
-import { pseudoFrequency, RADIO_GENRES, type NowPlaying, type Station } from "@/lib/radio/types";
+import { pseudoFrequency, RADIO_ERAS, RADIO_GENRES, type Station } from "@/lib/radio/types";
 import { useApi } from "@/lib/use-api";
 import { useDebounced } from "@/lib/use-debounce";
-import { useNow } from "@/lib/use-now";
 import { useLibrary } from "@/store/library";
-
-const npLine = (np: NowPlaying | null | undefined) => (np ? `${np.artist ? `${np.artist} — ` : ""}${np.title}` : "");
-
-function sinceLabel(since: number | null | undefined, now: number): string {
-  if (since === undefined) return "";
-  if (since === null) return tx("в эфире");
-  const s = Math.max(0, Math.round((now - since) / 1000));
-  return s < 20 ? tx("только началась") : tx("идёт {t}", { t: formatTime(s) });
-}
-
-function MatchBadge({ m }: { m?: Match }) {
-  if (!m || m.kind === "none") return null;
-  if (m.kind === "avoid") return <span className="rounded-full bg-fg/10 px-2 py-0.5 text-[10.5px] text-subtle">{tx("не ваше")}</span>;
-  return (
-    <span
-      className={cn(
-        "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-        m.kind === "track" ? "bg-amber-400 text-black" : "bg-fg/12 text-fg",
-      )}
-    >
-      {m.kind === "track" ? <Flame className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-      {m.kind === "track" ? tx("ваш трек") : tx("ваш артист")}
-    </span>
-  );
-}
 
 /* ---------------- Retro tuner: LCD + draggable dial ---------------- */
 
@@ -148,80 +120,6 @@ function Tuner() {
   );
 }
 
-/* ---------------- Rows / cards ---------------- */
-
-function StationRow({ s }: { s: Station }) {
-  const r = useRadio();
-  const now = useNow(5000);
-  const favs = useLibrary((x) => x.radioFavs);
-  const toggleFav = useLibrary((x) => x.toggleRadioFav);
-  const fav = favs.some((f) => f.id === s.id);
-  const np = r.nowPlaying[s.id];
-  const playingHere = r.station?.id === s.id && r.playing;
-  return (
-    <div className={cn("flex items-center gap-3 rounded-xl px-4 py-2.5 md:px-3", playingHere && "bg-fg/[0.05]")}>
-      <button type="button" onClick={() => (playingHere ? r.toggle() : r.tune(s))} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-        <div className="relative">
-          <StationLogo station={s} className="h-12 w-12" />
-          {playingHere && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">
-              <Pause className="h-5 w-5 fill-white text-white" />
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-[15px] font-medium">{s.name}</span>
-            <MatchBadge m={r.matches[s.id]} />
-          </div>
-          <div className="truncate text-[13px] text-muted">
-            {np ? npLine(np) : <span className="text-subtle">{[s.countrycode, s.tags.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</span>}
-          </div>
-          {np && <div className="text-[11px] text-subtle">{sinceLabel(r.since[s.id], now)}</div>}
-        </div>
-      </button>
-      <button
-        type="button"
-        onClick={() => toggleFav(s)}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle hover:text-fg"
-        aria-label={fav ? tx("Убрать из моих станций") : tx("В мои станции")}
-        aria-pressed={fav}
-      >
-        <Star className={cn("h-[18px] w-[18px]", fav && "fill-amber-300 text-amber-300")} />
-      </button>
-    </div>
-  );
-}
-
-function HotCard({ s }: { s: Station }) {
-  const r = useRadio();
-  const now = useNow(1000);
-  const np = r.nowPlaying[s.id];
-  const m = r.matches[s.id];
-  return (
-    <button
-      type="button"
-      onClick={() => r.tune(s)}
-      className="w-[240px] shrink-0 snap-start rounded-2xl border border-amber-300/30 bg-gradient-to-br from-amber-400/15 to-card p-3 text-left md:w-[280px]"
-    >
-      <div className="flex items-center gap-2.5">
-        <StationLogo station={s} className="h-10 w-10" />
-        <div className="min-w-0">
-          <div className="truncate text-[13px] text-muted">{s.name}</div>
-          <MatchBadge m={m} />
-        </div>
-      </div>
-      <div className="mt-2.5 line-clamp-2 text-[15px] font-semibold leading-snug">{npLine(np)}</div>
-      <div className="mt-1 flex items-center justify-between text-[12px] text-subtle">
-        <span>{sinceLabel(r.since[s.id], now)}</span>
-        <span className="flex items-center gap-1 font-medium text-fg">
-          <Play className="h-3 w-3 fill-current" /> {tx("Слушать")}
-        </span>
-      </div>
-    </button>
-  );
-}
-
 /* ---------------- Page ---------------- */
 
 export default function RadioPage() {
@@ -231,6 +129,8 @@ export default function RadioPage() {
   const tags = useLibrary((s) => s.radioTags);
   const toggleTag = useLibrary((s) => s.toggleRadioTag);
   const favs = useLibrary((s) => s.radioFavs);
+  const skipAds = useLibrary((s) => s.radioPrefs.skipAds);
+  const setPrefs = useLibrary((s) => s.setRadioPrefs);
   const [q, setQ] = useState("");
   const dq = useDebounced(q.trim(), 350);
   const found = useApi<{ stations: Station[] }>(dq ? `/api/radio/search?q=${encodeURIComponent(dq)}&limit=30` : null, { keep: true });
@@ -244,7 +144,7 @@ export default function RadioPage() {
           <div className="flex items-center gap-2 whitespace-nowrap text-[13px] text-subtle">
             <RadioTower className="h-4 w-4 shrink-0" /> {tx("{n} станций рядом с вашим вкусом", { n: r.pool.length })}
           </div>
-          <h1 className="text-[28px] font-bold leading-tight tracking-tight md:text-[34px]">{tx("Радио")}</h1>
+          <h1 className="text-[28px] font-bold leading-tight tracking-tight md:text-[34px]">{tx("Эфир")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -258,6 +158,18 @@ export default function RadioPage() {
             title={tx("Само переключается туда, где начинается ваша песня")}
           >
             <Sparkles className="h-4 w-4" /> {tx("Умное радио")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPrefs({ skipAds: !skipAds })}
+            aria-pressed={skipAds}
+            className={cn(
+              "flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[13px] font-medium transition-colors",
+              skipAds ? "border-red-400/50 bg-red-500/15 text-red-300" : "border-line bg-card text-muted",
+            )}
+            title={tx("Переключать станцию, когда начинается реклама")}
+          >
+            <Megaphone className="h-4 w-4" /> {tx("Без рекламы")}
           </button>
           <button
             type="button"
@@ -305,7 +217,7 @@ export default function RadioPage() {
       <section className="mt-7">
         <h2 className="mb-2 px-4 text-[19px] font-bold tracking-tight md:px-0">{tx("Ваши жанры")}</h2>
         <div className="flex flex-wrap gap-2 px-4 md:px-0">
-          {RADIO_GENRES.map((g) => {
+          {[...RADIO_GENRES, ...RADIO_ERAS].map((g) => {
             const on = tags.includes(g.tag);
             return (
               <button
@@ -346,6 +258,7 @@ export default function RadioPage() {
 
       <section className="mt-7">
         <h2 className="mb-2 px-4 text-[19px] font-bold tracking-tight md:px-0">{tx("Найти станцию")}</h2>
+        <p className="mb-2 px-4 text-[12.5px] text-subtle md:px-0">{tx("Весь каталог — в разделе «Обзор».")}</p>
         <div className="mx-4 flex h-11 items-center gap-2 rounded-xl border border-line bg-card px-3 focus-within:border-line-strong md:mx-0 md:max-w-md">
           <SearchIcon className="h-[18px] w-[18px] text-subtle" />
           <input

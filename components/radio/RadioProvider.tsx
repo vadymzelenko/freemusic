@@ -2,12 +2,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type Hls from "hls.js";
-import { usePlayer } from "@/components/player/PlayerProvider";
 import { tx } from "@/lib/i18n";
-import { buildTaste, matchNowPlaying, type Match } from "@/lib/radio/match";
+import { buildTaste, isSong, matchNowPlaying, songTrack, type Match } from "@/lib/radio/match";
 import type { NowPlaying, Station } from "@/lib/radio/types";
 import { fetchJSON, getJSON } from "@/lib/use-api";
-import { useLibrary } from "@/store/library";
+import { initCloudSync } from "@/lib/cloud-sync";
+import { initLibrarySync, useHydrated, useLibrary } from "@/store/library";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -16,14 +16,17 @@ import { useLibrary } from "@/store/library";
 export interface SwitchEvent {
   to: Station;
   np: NowPlaying | null;
-  kind: Match["kind"];
+  /** why we switched: your track / artist, better match, or skipped an ad / talk */
+  kind: Match["kind"] | "ad" | "talk";
   at: number;
 }
 
 interface RadioCtx {
   station: Station | null;
-  /** radio is the current audio source (shows the radio bar instead of the music mini player) */
+  /** a station is loaded (shows the bottom bar) */
   active: boolean;
+  /** what's on air on the current station right now */
+  current: NowPlaying | null;
   playing: boolean;
   buffering: boolean;
   error: string | null;
@@ -90,17 +93,20 @@ function tuningStatic() {
 /* ------------------------------------------------------------------ */
 
 const POLL_MS = 30_000;
-const POOL_PER_TAG = 16;
-const MAX_POOL = 70;
+/** the station you're listening to is checked more often — that's how ad breaks are caught */
+const CURRENT_POLL_MS = 10_000;
+const POOL_PER_TAG = 12;
+const POOL_PER_COUNTRY = 12;
+const MAX_POOL = 80;
 
 export function RadioProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const player = usePlayer();
 
   const radioTags = useLibrary((s) => s.radioTags);
   const radioFavs = useLibrary((s) => s.radioFavs);
   const smart = useLibrary((s) => s.radioSmart);
+  const countries = useLibrary((s) => s.radioPrefs.countries);
   const likedIds = useLibrary((s) => s.likedIds);
   const dislikedIds = useLibrary((s) => s.dislikedIds);
   const followed = useLibrary((s) => s.artists);
@@ -122,6 +128,32 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const lastSwitchAt = useRef(0);
   const sinceRef = useRef<Record<string, number | null>>({});
   const rawRef = useRef<Record<string, string>>({});
+  const npRef = useRef<Record<string, NowPlaying | null>>({});
+  /** the song on the current station + when we started hearing it — for listening history */
+  const heardRef = useRef<{ np: NowPlaying; from: number; startedFresh: boolean } | null>(null);
+
+  /* ---------------- boot: local storage + cloud sync, restore last station ---------------- */
+
+  useEffect(() => {
+    const stopLocal = initLibrarySync();
+    const stopCloud = initCloudSync();
+    return () => {
+      stopLocal();
+      stopCloud();
+    };
+  }, []);
+
+  const hydrated = useHydrated();
+  useEffect(() => {
+    if (!hydrated || stationRef.current) return;
+    const last = useLibrary.getState().radioHistory[0];
+    if (last) {
+      // show it paused in the bar — one tap to resume (browsers block autoplay anyway)
+      stationRef.current = last.s;
+      setStation(last.s);
+      setActive(true);
+    }
+  }, [hydrated]);
 
   /* ---------------- taste & ranking ---------------- */
 
@@ -151,14 +183,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const loadPool = useCallback(async () => {
     setPoolLoading(true);
     try {
-      const lists = await Promise.allSettled(
-        radioTags.map((tag) =>
-          getJSON<{ stations: Station[] }>(`/api/radio/search?tag=${encodeURIComponent(tag)}&limit=${POOL_PER_TAG}`),
-        ),
-      );
+      const urls = [
+        ...radioTags.map((tag) => `/api/radio/search?tag=${encodeURIComponent(tag)}&limit=${POOL_PER_TAG}`),
+        // music stations from your countries, in your genres where possible
+        ...countries.slice(0, 3).map((cc, i) => {
+          const tag = radioTags[i % Math.max(1, radioTags.length)];
+          return `/api/radio/search?cc=${cc}${tag ? `&tag=${encodeURIComponent(tag)}` : ""}&limit=${POOL_PER_COUNTRY}`;
+        }),
+      ];
+      const lists = await Promise.allSettled(urls.map((u) => getJSON<{ stations: Station[] }>(u)));
+      // interleave so every genre / country gets a fair share of the pool
+      const flat: Station[] = [];
+      const cols = lists.map((l) => (l.status === "fulfilled" ? l.value.stations : []));
+      for (let i = 0; i < 20; i++) for (const c of cols) if (c[i]) flat.push(c[i]!);
+      const st = useLibrary.getState();
       const seen = new Set<string>();
       const out: Station[] = [];
-      for (const s of [...useLibrary.getState().radioFavs, ...lists.flatMap((l) => (l.status === "fulfilled" ? l.value.stations : []))]) {
+      for (const s of [...st.radioFavs, ...st.radioHistory.slice(0, 6).map((h) => h.s), ...flat]) {
         if (seen.has(s.id)) continue;
         seen.add(s.id);
         out.push(s);
@@ -167,7 +208,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     } finally {
       setPoolLoading(false);
     }
-  }, [radioTags]);
+  }, [radioTags, countries]);
 
   useEffect(() => {
     void loadPool();
@@ -211,7 +252,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const a = audioRef.current;
       if (!a) return;
       if (!opts.quiet) tuningStatic();
-      player.pause(); // music and radio never play together
+      flushHeard();
       stationRef.current = s;
       setStation(s);
       setActive(true);
@@ -220,10 +261,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       void attach(s).then(() => {
         a.play().catch(() => setPlaying(false));
       });
-      applyMediaSession(s, nowPlaying[s.id] ?? null);
+      applyMediaSession(s, npRef.current[s.id] ?? null);
+      useLibrary.getState().pushRadioHistory(s);
+      // make sure the station is scanned even if it's not in the pool
+      setPool((p) => (p.some((x) => x.id === s.id) ? p : [s, ...p].slice(0, MAX_POOL + 1)));
+      setTimeout(() => void pollCurrentRef.current(), 1500);
       fetch(`/api/radio/click?id=${encodeURIComponent(s.id)}`).catch(() => {});
     },
-    [attach, applyMediaSession, nowPlaying, player],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [attach, applyMediaSession],
   );
 
   const tune = useCallback((s: Station) => tuneImpl(s), [tuneImpl]);
@@ -233,15 +279,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const s = stationRef.current;
     if (!a || !s) return;
     if (a.paused) {
-      player.pause();
       setActive(true);
       // live radio: resume at the live edge unless the station lets us sit in the past
       if (!hlsRef.current && !a.seekable.length) void attach(s).then(() => a.play().catch(() => {}));
       else a.play().catch(() => {});
-    } else a.pause();
-  }, [attach, player]);
+    } else {
+      a.pause();
+      flushHeard();
+    }
+  }, [attach]);
 
   const stop = useCallback(() => {
+    flushHeard();
     const a = audioRef.current;
     a?.pause();
     hlsRef.current?.destroy();
@@ -339,11 +388,59 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const stepRef = useRef(step);
   stepRef.current = step;
 
-  // music started → radio steps aside
-  useEffect(() => {
-    if (player.isPlaying && audioRef.current && !audioRef.current.paused) audioRef.current.pause();
-    if (player.isPlaying) setActive(false);
-  }, [player.isPlaying]);
+  /* ---------------- listening history (songs heard on air) ---------------- */
+
+  function flushHeard() {
+    const h = heardRef.current;
+    heardRef.current = null;
+    if (!h) return;
+    const listened = (Date.now() - h.from) / 1000;
+    // a song you sat through from the start counts as "completed"
+    useLibrary.getState().recordPlay(songTrack(h.np), listened, h.startedFresh && listened > 90);
+  }
+
+  /** called whenever we learn what's on the current station */
+  const noteCurrent = useCallback((id: string, np: NowPlaying | null, changed: boolean) => {
+    const cur = stationRef.current;
+    const a = audioRef.current;
+    if (!cur || cur.id !== id || !a || a.paused) return;
+    const h = heardRef.current;
+    if (h && h.np.raw === np?.raw) return;
+    flushHeard();
+    if (isSong(np)) heardRef.current = { np, from: Date.now(), startedFresh: changed };
+  }, []);
+
+  /** an ad break / talk started on the current station → move to the best station playing music */
+  const maybeSkip = useCallback(
+    (np: NowPlaying | null) => {
+      const st = useLibrary.getState();
+      const cur = stationRef.current;
+      const a = audioRef.current;
+      if (!cur || !a || a.paused || !np) return;
+      const bad = (np.kind === "ad" && st.radioPrefs.skipAds) || (np.kind === "talk" && st.radioPrefs.skipTalk);
+      if (!bad) return;
+      const now = Date.now();
+      if (now - lastSwitchAt.current < 20_000) return;
+      const t = buildTaste(st);
+      const cands = pool
+        .filter((s) => s.id !== cur.id && isSong(npRef.current[s.id]))
+        .map((s) => {
+          const m = matchNowPlaying(npRef.current[s.id], t);
+          const started = sinceRef.current[s.id];
+          const fresh = started && now - started < 90_000 ? 15 : 0;
+          return { s, m, score: m.score + fresh + (st.radioFavs.some((f) => f.id === s.id) ? 10 : 0) };
+        })
+        .filter((c) => c.m.score > -50)
+        .sort((x, y) => y.score - x.score || y.s.votes - x.s.votes);
+      const best = cands[0];
+      if (!best) return;
+      lastSwitchAt.current = now;
+      tuneImpl(best.s, { quiet: true });
+      setLastSwitch({ to: best.s, np: npRef.current[best.s.id] ?? null, kind: np.kind === "ad" ? "ad" : "talk", at: now });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pool],
+  );
 
   /* ---------------- now-playing polling ---------------- */
 
@@ -366,11 +463,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       rawRef.current[id] = raw;
     }
     sinceRef.current = nextSince;
+    npRef.current = { ...npRef.current, ...items };
     setSince(nextSince);
     setNowPlaying((old) => ({ ...old, ...items }));
 
     const cur = stationRef.current;
-    if (cur && items[cur.id] !== undefined) applyMediaSession(cur, items[cur.id] ?? null);
+    if (cur && items[cur.id] !== undefined) {
+      applyMediaSession(cur, items[cur.id] ?? null);
+      noteCurrent(cur.id, items[cur.id] ?? null, nextSince[cur.id] != null);
+      maybeSkip(items[cur.id] ?? null);
+      if (stationRef.current !== cur) return; // just skipped an ad
+    }
 
     // ---- smart switching ----
     const st = useLibrary.getState();
@@ -385,7 +488,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const m = matchNowPlaying(items[s.id] ?? null, t);
       const started = nextSince[s.id];
       // only jump to a song that has JUST started — you get it from the beginning
-      if (m.score >= 100 && started && now - started < 70_000 && (!best || m.score > best.m.score)) best = { s, m };
+      if (m.score >= 100 && started && now - started < 70_000 && items[s.id]?.kind === "music" && (!best || m.score > best.m.score)) best = { s, m };
     }
     if (best && best.m.score > curScore) {
       lastSwitchAt.current = now;
@@ -403,10 +506,45 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setLastSwitch({ to: alt.s, np: items[alt.s.id] ?? null, kind: alt.m.kind, at: now });
       }
     }
-  }, [pool, applyMediaSession, tuneImpl]);
+  }, [pool, applyMediaSession, tuneImpl, noteCurrent, maybeSkip]);
 
   const pollRef = useRef(poll);
   pollRef.current = poll;
+
+  /** fast check of just the current station: catches ad breaks and song changes */
+  const pollCurrent = useCallback(async () => {
+    const cur = stationRef.current;
+    const a = audioRef.current;
+    if (!cur || cur.hls || !a || a.paused) return;
+    let np: NowPlaying | null = null;
+    try {
+      np = (await fetchJSON<{ items?: Record<string, NowPlaying | null> }>(`/api/radio/nowplaying?ids=${cur.id}`)).items?.[cur.id] ?? null;
+    } catch {
+      return;
+    }
+    if (stationRef.current?.id !== cur.id) return;
+    const raw = np?.raw ?? "";
+    const prev = rawRef.current[cur.id];
+    if (prev !== raw) {
+      const nextSince = { ...sinceRef.current, [cur.id]: prev === undefined ? null : raw ? Date.now() : null };
+      sinceRef.current = nextSince;
+      setSince(nextSince);
+      rawRef.current[cur.id] = raw;
+    }
+    npRef.current = { ...npRef.current, [cur.id]: np };
+    setNowPlaying((old) => ({ ...old, [cur.id]: np }));
+    applyMediaSession(cur, np);
+    noteCurrent(cur.id, np, sinceRef.current[cur.id] != null);
+    maybeSkip(np);
+  }, [applyMediaSession, noteCurrent, maybeSkip]);
+
+  const pollCurrentRef = useRef(pollCurrent);
+  pollCurrentRef.current = pollCurrent;
+
+  useEffect(() => {
+    const id = setInterval(() => void pollCurrentRef.current(), CURRENT_POLL_MS);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!pool.length) return;
@@ -425,6 +563,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     () => ({
       station,
       active,
+      current: station ? (nowPlaying[station.id] ?? null) : null,
       playing,
       buffering,
       error,

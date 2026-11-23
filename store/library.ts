@@ -28,8 +28,25 @@ export interface LibraryData {
   radioFavs: Station[];
   radioTags: string[];
   radioSmart: boolean;
+  /** Taste-survey answers + ad handling. Synced. */
+  radioPrefs: RadioPrefs;
+  /** Recently tuned stations, newest first. Synced. */
+  radioHistory: { s: Station; at: number }[];
   /** Last queue snapshot for session restore. */
   lastQueue: { tracks: Track[]; index: number; radio: boolean };
+}
+
+export interface RadioPrefs {
+  /** ISO 3166 codes, e.g. "PL" */
+  countries: string[];
+  /** Radio Browser language names, e.g. "polish" */
+  langs: string[];
+  /** switch away when an ad break starts */
+  skipAds: boolean;
+  /** also switch away from talk / news / jingles */
+  skipTalk: boolean;
+  /** finished the taste survey */
+  surveyed: boolean;
 }
 
 interface LibraryState extends LibraryData {
@@ -50,6 +67,10 @@ interface LibraryState extends LibraryData {
   toggleRadioFav: (s: Station) => void;
   toggleRadioTag: (tag: string) => void;
   setRadioSmart: (v: boolean) => void;
+  setRadioTags: (tags: string[]) => void;
+  setRadioPrefs: (p: Partial<RadioPrefs>) => void;
+  pushRadioHistory: (s: Station) => void;
+  clearRadioHistory: () => void;
   recordPlay: (t: Track, listened: number, completed: boolean) => void;
   clearHistory: () => void;
   pushSearch: (q: string) => void;
@@ -77,17 +98,10 @@ export const EMPTY_LIBRARY: LibraryData = {
   radioFavs: [],
   radioTags: ["rock", "pop", "80s"],
   radioSmart: true,
+  radioPrefs: { countries: [], langs: [], skipAds: true, skipTalk: false, surveyed: false },
+  radioHistory: [],
   lastQueue: { tracks: [], index: 0, radio: true },
 };
-
-export const HOME_SECTIONS: { id: string; title: string; hint: string }[] = [
-  { id: "mixes", title: "Ваши миксы", hint: "Мой микс, Открытия, миксы артистов" },
-  { id: "quick", title: "Быстрый выбор", hint: "Список треков, подобранных для вас" },
-  { id: "because", title: "Потому что вам понравилось", hint: "Ряды похожих на любимые треки" },
-  { id: "artists", title: "Ваши артисты", hint: "Кружки выбранных артистов" },
-  { id: "recent", title: "Недавно слушали", hint: "" },
-  { id: "liked", title: "Любимые треки", hint: "" },
-];
 
 /** Drop cached metadata nothing references any more (keeps localStorage small). */
 function pruneTracks(s: LibraryData): Record<string, Track> {
@@ -200,9 +214,14 @@ export const useLibrary = create<LibraryState>()(
         })),
       toggleRadioTag: (tag) =>
         set((s) => ({
-          radioTags: s.radioTags.includes(tag) ? s.radioTags.filter((t) => t !== tag) : [...s.radioTags, tag].slice(0, 6),
+          radioTags: s.radioTags.includes(tag) ? s.radioTags.filter((t) => t !== tag) : [...s.radioTags, tag].slice(0, 12),
         })),
       setRadioSmart: (v) => set({ radioSmart: v }),
+      setRadioTags: (tags) => set({ radioTags: [...new Set(tags)].slice(0, 12) }),
+      setRadioPrefs: (p) => set((s) => ({ radioPrefs: { ...s.radioPrefs, ...p } })),
+      pushRadioHistory: (st) =>
+        set((s) => ({ radioHistory: [{ s: st, at: Date.now() }, ...s.radioHistory.filter((h) => h.s.id !== st.id)].slice(0, 40) })),
+      clearRadioHistory: () => set({ radioHistory: [] }),
 
       toggleSection: (id) =>
         set((s) => ({
@@ -239,7 +258,7 @@ export const useLibrary = create<LibraryState>()(
     }),
     {
       name: "freemusic-library",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
       partialize: (s) => ({
@@ -257,6 +276,8 @@ export const useLibrary = create<LibraryState>()(
         radioFavs: s.radioFavs,
         radioTags: s.radioTags,
         radioSmart: s.radioSmart,
+        radioPrefs: s.radioPrefs,
+        radioHistory: s.radioHistory,
         lastQueue: s.lastQueue,
       }),
       migrate: (persisted, version) => {
@@ -272,7 +293,7 @@ export const useLibrary = create<LibraryState>()(
             onboarded: (old.likedIds?.length ?? 0) > 0,
           } as LibraryData;
         }
-        return { ...EMPTY_LIBRARY, ...old } as LibraryData;
+        return { ...EMPTY_LIBRARY, ...old, radioPrefs: { ...EMPTY_LIBRARY.radioPrefs, ...old.radioPrefs } } as LibraryData;
       },
     },
   ),

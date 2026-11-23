@@ -1,15 +1,15 @@
 "use client";
 
 import { tx } from "@/lib/i18n";
-import { House, RadioTower, Library, Search } from "lucide-react";
+import { Compass, Library, RadioTower, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
 const TABS = [
-  { href: "/radio", label: "Радио", icon: RadioTower, match: (p: string) => p.startsWith("/radio") },
-  { href: "/", label: "Главная", icon: House, match: (p: string) => p === "/" || p.startsWith("/artist") || p.startsWith("/album") },
-  { href: "/search", label: "Поиск", icon: Search, match: (p: string) => p.startsWith("/search") || p.startsWith("/queue") },
+  { href: "/", label: "Для вас", icon: Sparkles, match: (p: string) => p === "/" },
+  { href: "/radio", label: "Эфир", icon: RadioTower, match: (p: string) => p.startsWith("/radio") },
+  { href: "/explore", label: "Обзор", icon: Compass, match: (p: string) => p.startsWith("/explore") },
   { href: "/library", label: "Медиатека", icon: Library, match: (p: string) => p.startsWith("/library") || p.startsWith("/settings") || p.startsWith("/stats") },
 ] as const;
 

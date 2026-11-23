@@ -5,10 +5,9 @@ import { BarChart3, Clock3, Disc3, Flame, Music2, SkipForward, UsersRound } from
 import { useMemo, useState } from "react";
 import { BackButton } from "@/components/BackButton";
 import { Cover } from "@/components/ui/Cover";
-import { usePlayer } from "@/components/player/PlayerProvider";
+import { SongCover } from "@/components/radio/SongCover";
 import { cn } from "@/lib/cn";
 import type { Track } from "@/lib/types";
-import { useDownloads } from "@/store/downloads";
 import { useHydrated, useLibrary } from "@/store/library";
 
 type Period = 7 | 30 | 0;
@@ -131,8 +130,7 @@ export default function StatsPage() {
   const tracks = useLibrary((s) => s.tracks);
   const likes = useLibrary((s) => s.likedIds.length);
   const dislikes = useLibrary((s) => s.dislikedIds.length);
-  const downloads = useDownloads((s) => Object.keys(s.items).length);
-  const { playTracks, setRadio } = usePlayer();
+  const stations = useLibrary((s) => s.radioHistory.length);
   const [period, setPeriod] = useState<Period>(30);
 
   const st = useMemo(() => {
@@ -241,7 +239,7 @@ export default function StatsPage() {
       <header className="flex flex-wrap items-end justify-between gap-3 pt-2 pb-4 md:pt-8">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight md:text-[34px]">{tx("Статистика")}</h1>
-          <p className="text-[13px] text-muted">{tx("Что и сколько вы слушали")}</p>
+          <p className="text-[13px] text-muted">{tx("Песни, которые вы услышали в эфире")}</p>
         </div>
         {/* filters: one row above the charts */}
         <div className="flex rounded-xl border border-line bg-card p-1" role="tablist">
@@ -267,14 +265,14 @@ export default function StatsPage() {
         <div className="mt-10 flex flex-col items-center text-center">
           <BarChart3 className="h-10 w-10 text-subtle" />
           <p className="mt-3 text-[15px] font-medium">{tx("Пока нечего показать")}</p>
-          <p className="mt-1 text-sm text-subtle">{tx("Слушайте музыку — статистика появится здесь.")}</p>
+          <p className="mt-1 text-sm text-subtle">{tx("Слушайте радио — песни из эфира появятся здесь.")}</p>
         </div>
       ) : (
         <div className="space-y-3 md:space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             <Tile icon={<Clock3 />} label={tx("Время")} value={fmtDuration(st.seconds)} sub={tx("{n} прослушиваний", { n: st.count })} />
             <Tile icon={<Music2 />} label={tx("Треков")} value={String(st.uniqTracks)} sub={tx("{likes} лайков · {dislikes} дизлайков", { likes, dislikes })} />
-            <Tile icon={<UsersRound />} label={tx("Артистов")} value={String(st.uniqArtists)} sub={tx("{n} скачано", { n: downloads })} />
+            <Tile icon={<UsersRound />} label={tx("Артистов")} value={String(st.uniqArtists)} sub={tx("{n} станций", { n: stations })} />
             <Tile
               icon={<Flame />}
               label={tx("Дней подряд")}
@@ -336,22 +334,15 @@ export default function StatsPage() {
               <ol className="space-y-1">
                 {st.topTracks.map(({ track, plays: n }, i) => (
                   <li key={track.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRadio(true);
-                        playTracks(st.topTracks.map((x) => x.track), i);
-                      }}
-                      className="flex w-full items-center gap-3 rounded-lg py-1.5 text-left hover:bg-fg/[0.04]"
-                    >
+                    <div className="flex w-full items-center gap-3 rounded-lg py-1.5 text-left">
                       <span className="w-4 text-right text-[12px] tabular-nums text-subtle">{i + 1}</span>
-                      <Cover src={track.cover} alt="" className="h-10 w-10" />
+                      <SongCover track={track} className="h-10 w-10" />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[14px] font-medium">{track.title}</div>
                         <div className="truncate text-[12.5px] text-muted">{track.artist}</div>
                       </div>
                       <span className="shrink-0 text-[12.5px] tabular-nums text-muted">×{n}</span>
-                    </button>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -359,8 +350,8 @@ export default function StatsPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:gap-4">
-            <Tile icon={<Disc3 />} label={tx("Дослушано до конца")} value={`${st.completedPct}%`} />
-            <Tile icon={<SkipForward />} label={tx("Пропущено сразу")} value={`${st.skippedPct}%`} />
+            <Tile icon={<Disc3 />} label={tx("Услышано с начала")} value={`${st.completedPct}%`} />
+            <Tile icon={<SkipForward />} label={tx("Переключили в первые 30 с")} value={`${st.skippedPct}%`} />
           </div>
         </div>
       )}

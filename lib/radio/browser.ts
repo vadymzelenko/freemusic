@@ -13,7 +13,7 @@ const MIRRORS = [
   "https://fi1.api.radio-browser.info",
   "https://at1.api.radio-browser.info",
 ];
-const UA = "vzMusic/1.0 (radio player)";
+const UA = "vzRadio/1.0 (radio player)";
 let preferred = 0;
 
 type Raw = {
@@ -81,11 +81,18 @@ function toStation(r: Raw): Station | null {
 
 const cache = new TTLCache<Station[]>(30 * 60 * 1000, 500);
 
+export type StationOrder = "clickcount" | "votes" | "clicktrend" | "name";
+
 export async function searchStations(p: {
   q?: string;
   tag?: string;
   countrycode?: string;
+  language?: string;
+  order?: StationOrder;
+  offset?: number;
   limit?: number;
+  /** catalog paging: fetch exactly `limit` raw rows from `offset` (no over-fetch / slice) */
+  paged?: boolean;
 }): Promise<Station[]> {
   const key = JSON.stringify(p);
   const hit = cache.get(key);
@@ -93,10 +100,12 @@ export async function searchStations(p: {
   const qs = new URLSearchParams({
     hidebroken: "true",
     is_https: "true",
-    order: "clickcount",
-    reverse: "true",
-    limit: String(Math.min(p.limit ?? 40, 150) * 2), // some get filtered out
+    order: p.order ?? "clickcount",
+    reverse: p.order === "name" ? "false" : "true",
+    offset: String(p.offset ?? 0),
+    limit: String(p.paged ? Math.min(p.limit ?? 50, 150) : Math.min(p.limit ?? 40, 150) * 2), // some get filtered out
   });
+  if (p.language) qs.set("language", p.language);
   if (p.q) qs.set("name", p.q);
   if (p.tag) {
     qs.set("tag", p.tag);
@@ -114,7 +123,7 @@ export async function searchStations(p: {
       seen.add(k);
       return true;
     })
-    .slice(0, p.limit ?? 40);
+    .slice(0, p.paged ? undefined : (p.limit ?? 40));
   cache.set(key, out);
   return out;
 }
@@ -136,4 +145,42 @@ export async function stationsByIds(ids: string[]): Promise<Station[]> {
 /** Tells radio-browser a station was played (their popularity ranking; recommended by the API). */
 export async function countClick(id: string): Promise<void> {
   await api(`/json/url/${encodeURIComponent(id)}`).catch(() => {});
+}
+
+
+/* ---------- facets for the Explore screen ---------- */
+
+export interface Facet {
+  name: string;
+  code?: string;
+  count: number;
+}
+
+const facetCache = new TTLCache<Facet[]>(12 * 60 * 60 * 1000, 10);
+
+export async function countries(): Promise<Facet[]> {
+  const hit = facetCache.get("countries");
+  if (hit) return hit;
+  const r = await api<{ name: string; iso_3166_1: string; stationcount: number }[]>(`/json/countries?order=stationcount&reverse=true&hidebroken=true`);
+  const out = r.filter((c) => c.stationcount > 0 && c.iso_3166_1).map((c) => ({ name: c.name, code: c.iso_3166_1, count: c.stationcount }));
+  facetCache.set("countries", out);
+  return out;
+}
+
+export async function tags(): Promise<Facet[]> {
+  const hit = facetCache.get("tags");
+  if (hit) return hit;
+  const r = await api<{ name: string; stationcount: number }[]>(`/json/tags?order=stationcount&reverse=true&hidebroken=true&limit=300`);
+  const out = r.filter((t) => t.name && t.stationcount >= 20).map((t) => ({ name: t.name, count: t.stationcount }));
+  facetCache.set("tags", out);
+  return out;
+}
+
+export async function languages(): Promise<Facet[]> {
+  const hit = facetCache.get("languages");
+  if (hit) return hit;
+  const r = await api<{ name: string; iso_639: string | null; stationcount: number }[]>(`/json/languages?order=stationcount&reverse=true&hidebroken=true&limit=120`);
+  const out = r.filter((l) => l.name && l.stationcount >= 10).map((l) => ({ name: l.name, code: l.iso_639 ?? undefined, count: l.stationcount }));
+  facetCache.set("languages", out);
+  return out;
 }

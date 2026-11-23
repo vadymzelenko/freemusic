@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { AppShell } from "@/components/AppShell";
 import { RadioProvider } from "@/components/radio/RadioProvider";
 import { THEME_BOOT_SCRIPT } from "@/lib/themes";
@@ -9,13 +8,13 @@ import { THEME_BOOT_SCRIPT } from "@/lib/themes";
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "vzMusic",
-  description: "Минималистичный музыкальный плеер",
+  title: "vzRadio",
+  description: "Радио со всего мира, которое подстраивается под ваш вкус",
   manifest: "/manifest.json",
-  applicationName: "vzMusic",
+  applicationName: "vzRadio",
   appleWebApp: {
     capable: true,
-    title: "vzMusic",
+    title: "vzRadio",
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },
@@ -51,11 +50,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="font-sans">
-        <PlayerProvider>
-          <RadioProvider>
-            <AppShell>{children}</AppShell>
-          </RadioProvider>
-        </PlayerProvider>
+        <RadioProvider>
+          <AppShell>{children}</AppShell>
+        </RadioProvider>
       </body>
     </html>
   );
